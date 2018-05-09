@@ -2,10 +2,15 @@ package main
 
 import (
 	"fmt"
+	"github.com/mlgd/gpio"
 	"github.com/zimwip/hello/stringutil"
 	"log"
 	"net/http"
+	"os"
+	"os/signal"
 	"strings"
+	"syscall"
+	"time"
 )
 
 func sayhelloName(w http.ResponseWriter, r *http.Request) {
@@ -47,6 +52,41 @@ func main() {
 
 	result := stringutil.Reverse("Hello, world")
 	fmt.Printf(result)
+
+	// Ouverture du port 23 en mode OUT
+	pin, err := gpio.OpenPin(gpio.GPIO23, gpio.ModeOutput)
+	if err != nil {
+		fmt.Printf("Error opening pin! %s\n", err)
+		return
+	}
+
+	// Création d’une variable pour l’interception du signal de fin de programme
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt)
+	signal.Notify(c, syscall.SIGTERM)
+	signal.Notify(c, syscall.SIGKILL)
+	// Go routine (thread parallèle) d’attente de fin du programme
+	// pour l’extinction de la LED et la fermeture du port
+	go func() {
+		<-c
+		pin.Clear()
+		pin.Close()
+		os.Exit(0)
+	}()
+
+	go func() {
+		// Boucle infinie réalisant la tâche souhaitée
+		for {
+			// Allumage de la LED
+			pin.Set()
+			// Attente d’une seconde
+			time.Sleep(time.Second)
+			// Extinction de la LED
+			pin.Clear()
+			// Attente d’une seconde
+			time.Sleep(time.Second)
+		}
+	}()
 
 	http.HandleFunc("/", sayhelloName)       // set router
 	err := http.ListenAndServe(":9090", nil) // set listen port
