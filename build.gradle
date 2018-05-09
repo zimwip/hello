@@ -14,14 +14,10 @@ dependencies {
 build.dependsOn check 
 
 build {
-    outputLocation = './hello${GOEXE}'
+    targetPlatform = ['windows-amd64', 'linux-amd64', 'linux-arm']
+    outputLocation = './bin/${GOOS}_${GOARCH}_${PROJECT_NAME}${GOEXE}'
 }
 
-task v(type: com.github.blindpirate.gogradle.Go){
-    go 'version'
-}
-
-task ls(type: com.github.blindpirate.gogradle.Go){
-    dependsOn v 
-    run 'ls'
+clean.doLast {
+    file('./bin').deleteDir()
 }
