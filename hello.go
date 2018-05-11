@@ -2,15 +2,12 @@ package main
 
 import (
 	"fmt"
-	"github.com/mlgd/gpio"
-	"github.com/zimwip/hello/stringutil"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
 	"strings"
 	"syscall"
-	"time"
 )
 
 func sayhelloName(w http.ResponseWriter, r *http.Request) {
@@ -23,6 +20,7 @@ func sayhelloName(w http.ResponseWriter, r *http.Request) {
 		fmt.Println("key:", k)
 		fmt.Println("val:", strings.Join(v, ""))
 	}
+	log.Println("receive query " + r.URL.Path)
 	fmt.Fprintf(w, "Hello astaxie!") // send data to client side
 }
 
@@ -50,15 +48,17 @@ func main() {
 	fmt.Println(<-out)
 	fmt.Println(<-out)
 
-	result := stringutil.Reverse("Hello, world")
-	fmt.Printf(result)
-
-	// Ouverture du port 23 en mode OUT
-	pin, err := gpio.OpenPin(gpio.GPIO23, gpio.ModeOutput)
+	//create your file with desired read/write permissions
+	f, err := os.OpenFile("hello.log", os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
 	if err != nil {
-		fmt.Printf("Error opening pin! %s\n", err)
-		return
+		log.Fatal(err)
 	}
+	//defer to close when you're done with it, not because you think it's idiomatic!
+	defer f.Close()
+	//set output of logs to f
+	log.SetOutput(f)
+	//test case
+	log.Println("check to make sure it works")
 
 	// Création d’une variable pour l’interception du signal de fin de programme
 	c := make(chan os.Signal, 1)
@@ -69,29 +69,14 @@ func main() {
 	// pour l’extinction de la LED et la fermeture du port
 	go func() {
 		<-c
-		pin.Clear()
-		pin.Close()
+		log.Println("Stopping program")
 		os.Exit(0)
 	}()
 
-	go func() {
-		// Boucle infinie réalisant la tâche souhaitée
-		for {
-			// Allumage de la LED
-			pin.Set()
-			// Attente d’une seconde
-			time.Sleep(time.Second)
-			// Extinction de la LED
-			pin.Clear()
-			// Attente d’une seconde
-			time.Sleep(time.Second)
-		}
-	}()
-
-	http.HandleFunc("/", sayhelloName)       // set router
-	err := http.ListenAndServe(":9090", nil) // set listen port
-	if err != nil {
-		log.Fatal("ListenAndServe: ", err)
+	http.HandleFunc("/", sayhelloName)            // set router
+	err_http := http.ListenAndServe(":9090", nil) // set listen port
+	if err_http != nil {
+		log.Fatal("ListenAndServe: ", err_http)
 	}
 }
 

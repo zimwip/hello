@@ -8,14 +8,14 @@ golang {
 
 dependencies {
     golang {
-        build 'github.com/mlgd/gpio'
+        build 'github.com/mrmorphic/hwio'
     }
 }
 
 build.dependsOn check 
 
 build {
-    targetPlatform = ['windows-amd64', 'linux-amd64', 'linux-arm']
+    targetPlatform = ['linux-amd64', 'linux-arm', 'windows-amd64']
     outputLocation = './bin/${GOOS}_${GOARCH}_${PROJECT_NAME}${GOEXE}'
 }
 
