@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"log"
 	"net/http"
@@ -25,6 +26,14 @@ func sayhelloName(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
+
+	cluster := flag.String("cluster", "http://127.0.0.1:9021", "comma separated cluster peers")
+	id := flag.Int("id", 1, "node ID")
+	kvport := flag.Int("port", 9121, "key-value server port")
+	join := flag.Bool("join", false, "join an existing cluster")
+	flag.Parse()
+	fmt.Printf("cluster: %s, id: %d, kvPort: %d, join: %t\n", *cluster, *id, *kvport, *join)
+
 	// This is where we "make" the channel, which can be used
 	// to move the `int` datatype
 	out := make(chan int)
