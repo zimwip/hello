@@ -9,6 +9,7 @@ golang {
 dependencies {
     golang {
         build 'github.com/mrmorphic/hwio'
+        build 'github.com/satori/go.uuid'
     }
 }
 

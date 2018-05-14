@@ -82,6 +82,12 @@ func main() {
 		os.Exit(0)
 	}()
 
+	sa := new(SocketServer)
+
+	sa.Setup(":1234")
+
+	go sa.Serve()
+
 	http.HandleFunc("/", sayhelloName)            // set router
 	err_http := http.ListenAndServe(":9090", nil) // set listen port
 	if err_http != nil {
