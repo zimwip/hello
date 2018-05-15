@@ -9,7 +9,6 @@ golang {
 dependencies {
     golang {
         build 'github.com/satori/go.uuid'
-        build 'github.com/coreos/etcd/'
     }
 }
 
