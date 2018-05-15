@@ -3,27 +3,13 @@ package main
 import (
 	"flag"
 	"fmt"
+	"github.com/coreos/etcd/raft/raftpb"
 	"log"
-	"net/http"
 	"os"
 	"os/signal"
 	"strings"
 	"syscall"
 )
-
-func sayhelloName(w http.ResponseWriter, r *http.Request) {
-	r.ParseForm()       // parse arguments, you have to call this by yourself
-	fmt.Println(r.Form) // print form information in server side
-	fmt.Println("path", r.URL.Path)
-	fmt.Println("scheme", r.URL.Scheme)
-	fmt.Println(r.Form["url_long"])
-	for k, v := range r.Form {
-		fmt.Println("key:", k)
-		fmt.Println("val:", strings.Join(v, ""))
-	}
-	log.Println("receive query " + r.URL.Path)
-	fmt.Fprintf(w, "Hello astaxie!") // send data to client side
-}
 
 func main() {
 
@@ -33,29 +19,6 @@ func main() {
 	join := flag.Bool("join", false, "join an existing cluster")
 	flag.Parse()
 	fmt.Printf("cluster: %s, id: %d, kvPort: %d, join: %t\n", *cluster, *id, *kvport, *join)
-
-	// This is where we "make" the channel, which can be used
-	// to move the `int` datatype
-	out := make(chan int)
-	in := make(chan int)
-
-	// We still run this function as a goroutine, but this time,
-	// the channel that we made is also provided
-	go multiplyByTwo(in, out)
-	go multiplyByTwo(in, out)
-	go multiplyByTwo(in, out)
-
-	// Up till this point, none of the created goroutines actually do
-	// anything, since they are all waiting for the `in` channel to
-	// receive some data
-	in <- 1
-	in <- 2
-	in <- 3
-
-	// Once any output is received on this channel, print it to the console and proceed
-	fmt.Println(<-out)
-	fmt.Println(<-out)
-	fmt.Println(<-out)
 
 	//create your file with desired read/write permissions
 	f, err := os.OpenFile("hello.log", os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
@@ -88,16 +51,18 @@ func main() {
 
 	go sa.Serve()
 
-	http.HandleFunc("/", sayhelloName)            // set router
-	err_http := http.ListenAndServe(":9090", nil) // set listen port
-	if err_http != nil {
-		log.Fatal("ListenAndServe: ", err_http)
-	}
-}
+	proposeC := make(chan string)
+	defer close(proposeC)
+	confChangeC := make(chan raftpb.ConfChange)
+	defer close(confChangeC)
 
-func multiplyByTwo(in <-chan int, out chan<- int) {
-	fmt.Println("Initializing goroutine...")
-	num := <-in
-	result := num * 2
-	out <- result
+	// raft provides a commit stream for the proposals from the http api
+	var kvs *kvstore
+	getSnapshot := func() ([]byte, error) { return kvs.getSnapshot() }
+	commitC, errorC, snapshotterReady := newRaftNode(*id, strings.Split(*cluster, ","), *join, getSnapshot, proposeC, confChangeC)
+
+	kvs = newKVStore(<-snapshotterReady, proposeC, commitC, errorC)
+
+	// the key-value http handler will propose updates to raft
+	serveHttpKVAPI(kvs, *kvport, confChangeC, errorC)
 }
