@@ -17,6 +17,12 @@ type message struct {
 	source string
 }
 
+type Packet struct {
+	ID       string
+	Response string
+	Content  []byte
+}
+
 type SocketServer struct {
 	port    string
 	uuid    string
@@ -37,43 +43,88 @@ func (s *SocketServer) Setup(port string) {
 	s.ready = make(chan struct{})
 }
 
+func (s *SocketServer) Init(readPort string, writePort string) (<-chan Packet, chan<- Packet) {
+	receive := make(chan Packet, 10)
+	send := make(chan Packet, 10)
+	go s.listen(receive, readPort)
+	go s.broadcast(send, writePort)
+	return receive, send
+}
+
+func (s *SocketServer) listen(receive chan Packet, port string) {
+	localAddress, _ := net.ResolveUDPAddr("udp", port)
+	connection, err := net.ListenUDP("udp", localAddress)
+	CheckError(err)
+	defer connection.Close()
+	var message Packet
+	for {
+		inputBytes := make([]byte, 4096)
+		length, _, _ := connection.ReadFromUDP(inputBytes)
+		buffer := bytes.NewBuffer(inputBytes[:length])
+		decoder := gob.NewDecoder(buffer)
+		decoder.Decode(&message)
+		//Filters out all messages not relevant for the system
+		if message.ID == "toto" {
+			receive <- message
+		}
+	}
+}
+
+func (s *SocketServer) broadcast(send chan Packet, port string) {
+	localAddress, _ := net.ResolveUDPAddr("udp", port)
+	destinationAddress, _ := net.ResolveUDPAddr("udp", "255.255.255.255"+port)
+	connection, err := net.DialUDP("udp", localAddress, destinationAddress)
+	CheckError(err)
+	defer connection.Close()
+	var buffer bytes.Buffer
+	encoder := gob.NewEncoder(&buffer)
+	for {
+		message := <-send
+		encoder.Encode(message)
+		connection.Write(buffer.Bytes())
+		buffer.Reset()
+	}
+}
+
 func (s *SocketServer) Serve() {
-	buffer := new(bytes.Buffer)
+	inBuffer := new(bytes.Buffer)
 	LocalAddr, err := net.ResolveUDPAddr("udp", s.port)
 	CheckError(err)
 
-	ServerConn, err := net.ListenUDP("udp", LocalAddr)
+	conn, err := net.ListenUDP("udp", LocalAddr)
 	CheckError(err)
-	defer ServerConn.Close()
+	defer conn.Close()
+
+	remoteAddr := conn.LocalAddr()
+	fmt.Println("Remote Addr: ", remoteAddr)
 
 	// Initialize the encoder and decoder. Normally enc and dec would be
 	// bound to network connections and the encoder and decoder would
 	// run in different processes
-	enc := gob.NewEncoder(buffer) // Will write to network.
-	dec := gob.NewDecoder(buffer)     // Will read from network.
+	enc := gob.NewEncoder(inBuffer) // Will write to network.
 
 	msg := message{action: "ASK", source: s.uuid}
 	enc.Encode(&msg)
-	fmt.Println("Send message: ", msg, " buffer len ", buffer.Len())
+	fmt.Println("Send message: ", msg, " buffer len ", inBuffer.Len())
 	// now Discover
-	ServerAddr, err := net.ResolveUDPAddr("udp", "255.255.255.255"+s.port)
+	broadCastAddr, err := net.ResolveUDPAddr("udp", "255.255.255.255"+s.port)
 	CheckError(err)
-	_, err = ServerConn.WriteToUDP(buffer.Bytes(), ServerAddr)
+	_, err = conn.WriteToUDP(inBuffer.Bytes(), broadCastAddr)
 	if err != nil {
 		log.Println(s.uuid, err)
 	}
-	localBuf := make([]byte, MSG_SIZE)
+
 	for {
 		var input message
-		n, addr, err := ServerConn.ReadFromUDP(localBuf)
+		inputBytes := make([]byte, MSG_SIZE)
+		lenght, addr, err := conn.ReadFromUDP(inputBytes)
 		if err != nil {
 			log.Println("Error: ", err)
 		}
-		buffer.Reset()
-		buffer.Write(localBuf[:n])
-		fmt.Println("Buffer len: ", buffer.Len())
-		dec.Decode(&input)
-		fmt.Println("Receive message: ", input, " size ", n, " buffer len ", buffer.Len())
+		buffer := bytes.NewBuffer(inputBytes[:lenght])
+		decoder := gob.NewDecoder(buffer)
+		decoder.Decode(&input)
+		fmt.Println("Receive message: ", input, " size ", lenght, " buffer len ", buffer.Len())
 		// do not answer to myself
 		if strings.Compare(s.uuid, msg.source) == 0 {
 			continue
@@ -82,7 +133,7 @@ func (s *SocketServer) Serve() {
 		if !exists {
 			fmt.Println("Received ", msg, " from ", addr)
 			s.servers[msg.source] = addr.IP
-			_, err = ServerConn.WriteToUDP([]byte(s.uuid), addr)
+			_, err = conn.WriteToUDP([]byte(s.uuid), addr)
 			if err != nil {
 				log.Println("Error: ", err)
 			}
