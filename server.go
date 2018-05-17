@@ -12,9 +12,9 @@ import (
 
 const MSG_SIZE = 512
 
-type message struct {
-	action string
-	source string
+type Message struct {
+	Action string
+	Source string
 }
 
 type Packet struct {
@@ -103,7 +103,7 @@ func (s *SocketServer) Serve() {
 	// run in different processes
 	enc := gob.NewEncoder(inBuffer) // Will write to network.
 
-	msg := message{action: "ASK", source: s.uuid}
+	msg := Message{Action: "ASK", Source: s.uuid}
 	enc.Encode(&msg)
 	fmt.Println("Send message: ", msg, " buffer len ", inBuffer.Len())
 	// now Discover
@@ -115,7 +115,7 @@ func (s *SocketServer) Serve() {
 	}
 
 	for {
-		var input message
+		var input Message
 		inputBytes := make([]byte, MSG_SIZE)
 		lenght, addr, err := conn.ReadFromUDP(inputBytes)
 		if err != nil {
@@ -126,13 +126,13 @@ func (s *SocketServer) Serve() {
 		decoder.Decode(&input)
 		fmt.Println("Receive message: ", input, " size ", lenght, " buffer len ", buffer.Len())
 		// do not answer to myself
-		if strings.Compare(s.uuid, msg.source) == 0 {
+		if strings.Compare(s.uuid, msg.Source) == 0 {
 			continue
 		}
-		_, exists := s.servers[msg.source]
+		_, exists := s.servers[msg.Source]
 		if !exists {
 			fmt.Println("Received ", msg, " from ", addr)
-			s.servers[msg.source] = addr.IP
+			s.servers[msg.Source] = addr.IP
 			_, err = conn.WriteToUDP([]byte(s.uuid), addr)
 			if err != nil {
 				log.Println("Error: ", err)
