@@ -17,3 +17,4 @@
 .gogradle
 vendor
 bin
+/.nb-gradle/

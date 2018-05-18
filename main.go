@@ -44,9 +44,6 @@ func main() {
 	}()
 
 	sa := new(SocketServer)
-
 	sa.Setup(":1234")
-
 	sa.Serve()
-
 }
