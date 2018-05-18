@@ -10,6 +10,8 @@ dependencies {
     golang {
         build 'github.com/satori/go.uuid'
         build 'github.com/coreos/etcd'
+        build 'github.com/spf13/viper'
+        build 'github.com/fsnotify/fsnotify'
     }
 }
 
