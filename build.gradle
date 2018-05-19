@@ -12,6 +12,9 @@ dependencies {
         build 'github.com/coreos/etcd'
         build 'github.com/spf13/viper'
         build 'github.com/fsnotify/fsnotify'
+        build 'github.com/gorilla/mux'
+        build 'github.com/urfave/negroni'
+        build 'github.com/thoas/stats'
     }
 }
 
