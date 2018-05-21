@@ -117,15 +117,6 @@ func NewServer(listen string, staticDir string) *APIRouter {
 		statMiddleware,
 		negroni.Wrap(api),
 	))
-	// Now server static file
-	static := mux.NewRouter().PathPrefix("/").Subrouter().StrictSlash(true)
-	r.PathPrefix("/").Handler(negroni.New(
-		recovery,
-		logger,
-		negroni.NewStatic(http.Dir(staticDir)),
-		negroni.Wrap(static),
-	))
-
 	// Now websocket test
 	mrouter := melody.New()
 	gophers := make(map[*melody.Session]*GopherInfo)
@@ -164,6 +155,15 @@ func NewServer(listen string, staticDir string) *APIRouter {
 		}
 		lock.Unlock()
 	})
+
+	// Now server static file should be last to allow ws.
+	static := mux.NewRouter().PathPrefix("/").Subrouter().StrictSlash(true)
+	r.PathPrefix("/").Handler(negroni.New(
+		recovery,
+		logger,
+		negroni.NewStatic(http.Dir(staticDir)),
+		negroni.Wrap(static),
+	))
 
 	// create the server,
 	srv := &APIRouter{http.Server{

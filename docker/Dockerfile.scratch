@@ -1,0 +1,32 @@
+# build stage
+FROM golang:alpine AS build-env
+COPY . $GOPATH/src/github.com/zimwip/hello/
+WORKDIR $GOPATH/src/github.com/zimwip/hello/
+ENV CGO_ENABLED=0
+ENV GOOS=linux
+ENV GOARCH=amd64
+
+RUN apk update && apk add git && apk add ca-certificates
+
+# Create appuser
+RUN adduser -D -g '' appuser
+
+#get dependancies
+RUN go get -d -v
+
+#build the binary
+RUN go build -ldflags '-w -s' -a -installsuffix cgo -o /go/bin/goapp
+
+# start from scratch
+FROM scratch
+WORKDIR /app
+COPY config.yml .
+COPY --from=build-env /etc/passwd /etc/passwd
+# ADD our static linked executable
+COPY --from=build-env /go/bin/goapp /app/
+COPY --from=build-env /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+RUN chown appuser /app
+USER appuser
+EXPOSE 9090
+# tell how to run this container
+ENTRYPOINT ["./goapp"]
