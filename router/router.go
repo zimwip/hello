@@ -3,18 +3,27 @@ package router
 import (
 	"encoding/json"
 	"fmt"
+	"log"
+	"net/http"
+	"strconv"
+	"strings"
+	"sync"
+	"time"
+
 	"github.com/gorilla/mux"
 	"github.com/thoas/stats"
 	"github.com/urfave/negroni"
-	"log"
-	"net/http"
-	"strings"
-	"time"
+	"gopkg.in/olahol/melody.v1"
 )
 
 type APIRouter struct {
 	http.Server
 	router *mux.Router
+}
+
+// GopherInfo contains information about the gopher on screen
+type GopherInfo struct {
+	ID, X, Y string
 }
 
 func handler(w http.ResponseWriter, r *http.Request) {
@@ -36,6 +45,10 @@ func HealthCheckHandler(w http.ResponseWriter, r *http.Request) {
 	// In the future we could report back on the status of our DB, or our cache
 	// (e.g. Redis) by performing a simple PING, and include them in the response.
 	w.Write([]byte(`{"alive": true}`))
+}
+
+func GopherHandler(w http.ResponseWriter, r *http.Request) {
+
 }
 
 func PrintUsage(r *APIRouter) {
@@ -69,10 +82,22 @@ func PrintUsage(r *APIRouter) {
 	}
 }
 
-func NewHttpAPI(listen string) *APIRouter {
-	statMiddleware := stats.New()
+/*
+Create a new server listen to API call and static file
+return an APIRouter
+*/
+func NewServer(listen string, staticDir string) *APIRouter {
+	// master router
 	r := mux.NewRouter()
-	api := mux.NewRouter()
+	// Set up classic Negroni Middleware
+	recovery := negroni.NewRecovery()
+	recovery.Formatter = &negroni.HTMLPanicFormatter{}
+	recovery.PrintStack = true
+	logger := negroni.NewLogger()
+	statMiddleware := stats.New()
+
+	// api route setup
+	api := mux.NewRouter().PathPrefix("/api").Subrouter().StrictSlash(true)
 	api.HandleFunc("/", handler)
 	api.HandleFunc("/articles/{category}", handler).Methods("GET")
 	api.HandleFunc("/panic", panicHandler)
@@ -86,18 +111,61 @@ func NewHttpAPI(listen string) *APIRouter {
 
 		w.Write(b)
 	})
-	// Set up classic Negroni Middleware
-	recovery := negroni.NewRecovery()
-	recovery.Formatter = &negroni.HTMLPanicFormatter{}
-	recovery.PrintStack = true
-	logger := negroni.NewLogger()
-	r.PathPrefix("/").Handler(negroni.New(
+	r.PathPrefix("/api").Handler(negroni.New(
 		recovery,
 		logger,
 		statMiddleware,
 		negroni.Wrap(api),
 	))
+	// Now server static file
+	static := mux.NewRouter().PathPrefix("/").Subrouter().StrictSlash(true)
+	r.PathPrefix("/").Handler(negroni.New(
+		recovery,
+		logger,
+		negroni.NewStatic(http.Dir(staticDir)),
+		negroni.Wrap(static),
+	))
 
+	// Now websocket test
+	mrouter := melody.New()
+	gophers := make(map[*melody.Session]*GopherInfo)
+	lock := new(sync.Mutex)
+	counter := 0
+
+	r.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
+		mrouter.HandleRequest(w, r)
+	})
+	mrouter.HandleConnect(func(s *melody.Session) {
+		lock.Lock()
+		for _, info := range gophers {
+			s.Write([]byte("set " + info.ID + " " + info.X + " " + info.Y))
+		}
+		gophers[s] = &GopherInfo{strconv.Itoa(counter), "0", "0"}
+		s.Write([]byte("iam " + gophers[s].ID))
+		counter++
+		lock.Unlock()
+	})
+
+	mrouter.HandleDisconnect(func(s *melody.Session) {
+		lock.Lock()
+		mrouter.BroadcastOthers([]byte("dis "+gophers[s].ID), s)
+		delete(gophers, s)
+		lock.Unlock()
+	})
+
+	mrouter.HandleMessage(func(s *melody.Session, msg []byte) {
+		p := strings.Split(string(msg), " ")
+		lock.Lock()
+		info := gophers[s]
+		if len(p) == 2 {
+			info.X = p[0]
+			info.Y = p[1]
+			mrouter.BroadcastOthers([]byte("set "+info.ID+" "+info.X+" "+info.Y), s)
+		}
+		lock.Unlock()
+	})
+
+	// create the server,
 	srv := &APIRouter{http.Server{
 		Addr: listen,
 		// Good practice to set timeouts to avoid Slowloris attacks.

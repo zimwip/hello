@@ -18,6 +18,7 @@ func main() {
 	var wait time.Duration
 	flag.DurationVar(&wait, "graceful-timeout", time.Second*15, "the duration for which the server gracefully wait for existing connections to finish - e.g. 15s or 1m")
 	cluster := flag.String("cluster", "http://127.0.0.1:9021", "comma separated cluster peers")
+	staticDir := flag.String("dir", "./public", "Static file to server")
 	id := flag.Int("id", 1, "node ID")
 	kvport := flag.Int("port", 9121, "key-value server port")
 	join := flag.Bool("join", false, "join an existing cluster")
@@ -41,7 +42,7 @@ func main() {
 	sa.Setup(":1234")
 	go sa.Serve()
 
-	srv := router.NewHttpAPI("0.0.0.0:9090")
+	srv := router.NewServer("0.0.0.0:9090", *staticDir)
 
 	// Création d’une variable pour l’interception du signal de fin de programme
 	c := make(chan os.Signal, 1)

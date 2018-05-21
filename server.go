@@ -4,10 +4,11 @@ import (
 	"bytes"
 	"encoding/gob"
 	"fmt"
-	"github.com/satori/go.uuid"
 	"log"
 	"net"
 	"strings"
+
+	"github.com/satori/go.uuid"
 )
 
 const MSG_SIZE = 512
@@ -38,7 +39,7 @@ func CheckError(err error) {
 
 func (s *SocketServer) Setup(port string) {
 	s.port = port
-	s.uuid = uuid.Must(uuid.NewV4()).String()
+	s.uuid = uuid.NewV4().String()
 	s.servers = make(map[string]net.IP)
 	s.ready = make(chan struct{})
 }

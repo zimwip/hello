@@ -13,8 +13,5 @@
 *.out
 
 # Gradle
-.gradle
-.gogradle
 vendor
 bin
-/.nb-gradle/
