@@ -4,25 +4,36 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"github.com/zimwip/hello/config"
-	"github.com/zimwip/hello/router"
 	"log"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
+
+	"github.com/zimwip/hello/config"
+	"github.com/zimwip/hello/router"
+
+	lightstepot "github.com/lightstep/lightstep-tracer-go"
+	"github.com/opentracing/opentracing-go"
+	"sourcegraph.com/sourcegraph/appdash"
+	appdashot "sourcegraph.com/sourcegraph/appdash/opentracing"
 )
 
 func main() {
 
 	var wait time.Duration
+	// Parse cmd line value
 	flag.DurationVar(&wait, "graceful-timeout", time.Second*15, "the duration for which the server gracefully wait for existing connections to finish - e.g. 15s or 1m")
 	cluster := flag.String("cluster", "http://127.0.0.1:9021", "comma separated cluster peers")
 	staticDir := flag.String("dir", "./public", "Static file to server")
 	id := flag.Int("id", 1, "node ID")
 	kvport := flag.Int("port", 9121, "key-value server port")
 	join := flag.Bool("join", false, "join an existing cluster")
+	appdashPort := flag.Int("appdash.port", 8700, "Run appdash locally on this port.")
+	lightstepToken := flag.String("lightstep.token", "", "Lightstep access token.")
 	flag.Parse()
+
+	//exploit cmd line
 	fmt.Printf("cluster: %s, id: %d, kvPort: %d, join: %t\n", *cluster, *id, *kvport, *join)
 	fmt.Println(config.GetString("app.value"))
 
@@ -37,6 +48,18 @@ func main() {
 	log.SetOutput(f)
 	//test case
 	log.Println("check to make sure it works")
+
+	var tracer opentracing.Tracer
+
+	// Would it make sense to embed Appdash?
+	if len(*lightstepToken) > 0 {
+		tracer = lightstepot.NewTracer(lightstepot.Options{AccessToken: *lightstepToken})
+	} else {
+		addr := startAppdashServer(*appdashPort)
+		tracer = appdashot.NewTracer(appdash.NewRemoteCollector(addr))
+	}
+
+	opentracing.InitGlobalTracer(tracer)
 
 	sa := new(SocketServer)
 	sa.Setup(":1234")

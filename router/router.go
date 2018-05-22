@@ -11,6 +11,8 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/opentracing/opentracing-go"
+	oplog "github.com/opentracing/opentracing-go/log"
 	"github.com/thoas/stats"
 	"github.com/urfave/negroni"
 	"gopkg.in/olahol/melody.v1"
@@ -27,8 +29,17 @@ type GopherInfo struct {
 }
 
 func handler(w http.ResponseWriter, r *http.Request) {
+	sp := opentracing.StartSpan("GET /home") // Start a new root span.
+	defer sp.Finish()
 	vars := mux.Vars(r)
 	w.WriteHeader(http.StatusOK)
+	sp.LogFields(
+		oplog.String("event", "soft error"),
+		oplog.String("type", "cache timeout"),
+		oplog.Int("waited.millis", 1500))
+	csp := opentracing.StartSpan("Event 1", opentracing.ChildOf(sp.Context()))
+	csp.LogFields(oplog.String("test", "test"))
+	defer csp.Finish()
 	fmt.Fprintf(w, "Category: %v\n", vars["category"])
 	w.Write([]byte("Gorilla!\n"))
 }
