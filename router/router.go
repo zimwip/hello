@@ -3,12 +3,13 @@ package router
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/zimwip/hello/middleware"
 
 	"github.com/gorilla/mux"
 	"github.com/opentracing/opentracing-go"
@@ -16,6 +17,8 @@ import (
 	"github.com/thoas/stats"
 	"github.com/urfave/negroni"
 	"gopkg.in/olahol/melody.v1"
+
+	"go.uber.org/zap"
 )
 
 type APIRouter struct {
@@ -45,6 +48,8 @@ func handler(w http.ResponseWriter, r *http.Request) {
 }
 
 func panicHandler(w http.ResponseWriter, r *http.Request) {
+	sp := opentracing.StartSpan("GET /panic") // Start a new root span.
+	defer sp.Finish()
 	panic("Oh no !")
 }
 
@@ -98,13 +103,16 @@ Create a new server listen to API call and static file
 return an APIRouter
 */
 func NewServer(listen string, staticDir string) *APIRouter {
+	//create our logger
+	log, _ := zap.NewProduction()
+	defer log.Sync()
 	// master router
 	r := mux.NewRouter()
 	// Set up classic Negroni Middleware
 	recovery := negroni.NewRecovery()
 	recovery.Formatter = &negroni.HTMLPanicFormatter{}
 	recovery.PrintStack = true
-	logger := negroni.NewLogger()
+	logger := middleware.NewLogger(log)
 	statMiddleware := stats.New()
 
 	// api route setup
@@ -188,7 +196,7 @@ func NewServer(listen string, staticDir string) *APIRouter {
 	// Run our server in a goroutine so that it doesn't block.
 	go func() {
 		if err := srv.ListenAndServe(); err != nil {
-			log.Println(err)
+			log.Fatal("Server stop with errorv", zap.Error(err))
 		}
 	}()
 	return srv
