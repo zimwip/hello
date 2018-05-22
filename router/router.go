@@ -24,6 +24,7 @@ import (
 type APIRouter struct {
 	http.Server
 	router *mux.Router
+	logger *zap.Logger
 }
 
 // GopherInfo contains information about the gopher on screen
@@ -102,17 +103,14 @@ func PrintUsage(r *APIRouter) {
 Create a new server listen to API call and static file
 return an APIRouter
 */
-func NewServer(listen string, staticDir string) *APIRouter {
-	//create our logger
-	log, _ := zap.NewProduction()
-	defer log.Sync()
+func NewServer(listen string, staticDir string, logger *zap.Logger) *APIRouter {
 	// master router
 	r := mux.NewRouter()
 	// Set up classic Negroni Middleware
 	recovery := negroni.NewRecovery()
 	recovery.Formatter = &negroni.HTMLPanicFormatter{}
 	recovery.PrintStack = true
-	logger := middleware.NewLogger(log)
+	logMid := middleware.NewLogger(logger)
 	statMiddleware := stats.New()
 
 	// api route setup
@@ -132,7 +130,7 @@ func NewServer(listen string, staticDir string) *APIRouter {
 	})
 	r.PathPrefix("/api").Handler(negroni.New(
 		recovery,
-		logger,
+		logMid,
 		statMiddleware,
 		negroni.Wrap(api),
 	))
@@ -179,7 +177,7 @@ func NewServer(listen string, staticDir string) *APIRouter {
 	static := mux.NewRouter().PathPrefix("/").Subrouter().StrictSlash(true)
 	r.PathPrefix("/").Handler(negroni.New(
 		recovery,
-		logger,
+		logMid,
 		negroni.NewStatic(http.Dir(staticDir)),
 		negroni.Wrap(static),
 	))
@@ -192,11 +190,11 @@ func NewServer(listen string, staticDir string) *APIRouter {
 		ReadTimeout:  time.Second * 15,
 		IdleTimeout:  time.Second * 60,
 		Handler:      r, // Pass our instance of gorilla/mux in.
-	}, r}
+	}, r, logger}
 	// Run our server in a goroutine so that it doesn't block.
 	go func() {
 		if err := srv.ListenAndServe(); err != nil {
-			log.Fatal("Server stop with errorv", zap.Error(err))
+			logger.Fatal("Server stop with errorv", zap.Error(err))
 		}
 	}()
 	return srv

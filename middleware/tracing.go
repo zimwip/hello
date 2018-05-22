@@ -50,10 +50,11 @@ func (l *Logger) ServeHTTP(rw http.ResponseWriter, r *http.Request, next http.Ha
 	ctx := context.WithValue(r.Context(), "span", sp)
 	next(rw, r.WithContext(ctx))
 	res := rw.(negroni.ResponseWriter)
+	duration := time.Since(start)
 	sp.LogFields(
 		oplog.String("StartTime", start.Format(l.dateFormat)),
 		oplog.Int("Status", res.Status()),
-		oplog.Int64("Duration", int64(time.Since(start)/time.Microsecond)),
+		oplog.Int64("Duration", int64(duration/time.Microsecond)),
 		oplog.String("Hostname", r.Host),
 		oplog.String("Method", r.Method),
 		oplog.String("URL", r.URL.Path))
@@ -61,7 +62,7 @@ func (l *Logger) ServeHTTP(rw http.ResponseWriter, r *http.Request, next http.Ha
 	l.Info(r.URL.Path,
 		zap.String("StartTime", start.Format(l.dateFormat)),
 		zap.Int("Status", res.Status()),
-		zap.Duration("Duration", time.Since(start)),
+		zap.Duration("Duration", duration),
 		zap.String("Hostname", r.Host),
 		zap.String("Method", r.Method),
 		zap.String("URL", r.URL.Path),
