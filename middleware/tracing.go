@@ -5,6 +5,9 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/opentracing/opentracing-go"
+	oplog "github.com/opentracing/opentracing-go/log"
+
 	"github.com/urfave/negroni"
 	"go.uber.org/zap"
 )
@@ -42,10 +45,19 @@ func NewLogger(log *zap.Logger) *Logger {
 func (l *Logger) ServeHTTP(rw http.ResponseWriter, r *http.Request, next http.HandlerFunc) {
 	start := time.Now()
 	//Add data to context
-	ctx := context.WithValue(r.Context(), "span", "toto")
+	sp := opentracing.StartSpan(r.Method + " " + r.URL.Path) // Start a new root span.
+	defer sp.Finish()
+	ctx := context.WithValue(r.Context(), "span", sp)
 	next(rw, r.WithContext(ctx))
-
 	res := rw.(negroni.ResponseWriter)
+	sp.LogFields(
+		oplog.String("StartTime", start.Format(l.dateFormat)),
+		oplog.Int("Status", res.Status()),
+		oplog.Int64("Duration", int64(time.Since(start)/time.Microsecond)),
+		oplog.String("Hostname", r.Host),
+		oplog.String("Method", r.Method),
+		oplog.String("URL", r.URL.Path))
+
 	l.Info(r.URL.Path,
 		zap.String("StartTime", start.Format(l.dateFormat)),
 		zap.Int("Status", res.Status()),
