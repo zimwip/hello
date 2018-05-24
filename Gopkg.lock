@@ -76,14 +76,7 @@
 
 [[projects]]
   name = "github.com/golang/protobuf"
-  packages = [
-    "proto",
-    "protoc-gen-go/descriptor",
-    "ptypes",
-    "ptypes/any",
-    "ptypes/duration",
-    "ptypes/timestamp"
-  ]
+  packages = ["proto"]
   revision = "b4deda0973fb4c70b50d226b1af49f3da59f5265"
   version = "v1.1.0"
 
@@ -121,18 +114,6 @@
     "json/token"
   ]
   revision = "ef8a98b0bbce4a65b5aa4c368430a80ddc533168"
-
-[[projects]]
-  name = "github.com/lightstep/lightstep-tracer-go"
-  packages = [
-    ".",
-    "collectorpb",
-    "lightstep_thrift",
-    "lightsteppb",
-    "thrift_0_9_2/lib/go/thrift"
-  ]
-  revision = "f9f54d495e5c6752b58fae6b66a5cb1107e17b29"
-  version = "v0.15.2"
 
 [[projects]]
   name = "github.com/magiconair/properties"
@@ -268,6 +249,12 @@
   revision = "37829025d2242afb04d91572cb143e00019e2aac"
 
 [[projects]]
+  branch = "master"
+  name = "github.com/unrolled/secure"
+  packages = ["."]
+  revision = "a1cf62cc2159fff407728f118c41aece76c397fa"
+
+[[projects]]
   name = "github.com/urfave/negroni"
   packages = ["."]
   revision = "5dbbc83f748fc3ad38585842b0aedab546d0ea1e"
@@ -306,16 +293,17 @@
 
 [[projects]]
   branch = "master"
-  name = "golang.org/x/net"
+  name = "golang.org/x/crypto"
   packages = [
-    "context",
-    "http/httpguts",
-    "http2",
-    "http2/hpack",
-    "idna",
-    "internal/timeseries",
-    "trace"
+    "acme",
+    "acme/autocert"
   ]
+  revision = "159ae71589f303f9fbfd7528413e0fe944b9c1cb"
+
+[[projects]]
+  branch = "master"
+  name = "golang.org/x/net"
+  packages = ["context"]
   revision = "57065200b4b034a1c8ad54ff77069408c2218ae6"
 
 [[projects]]
@@ -327,20 +315,12 @@
 [[projects]]
   name = "golang.org/x/text"
   packages = [
-    "collate",
-    "collate/build",
-    "internal/colltab",
     "internal/gen",
-    "internal/tag",
     "internal/triegen",
     "internal/ucd",
-    "language",
-    "secure/bidirule",
     "transform",
-    "unicode/bidi",
     "unicode/cldr",
-    "unicode/norm",
-    "unicode/rangetable"
+    "unicode/norm"
   ]
   revision = "f21a4dfb5e38f5895301dc265a8def02365cc3d0"
   version = "v0.3.0"
@@ -352,42 +332,8 @@
   revision = "fbb02b2291d28baffd63558aa44b4b56f178d650"
 
 [[projects]]
-  branch = "master"
-  name = "google.golang.org/genproto"
-  packages = [
-    "googleapis/api/annotations",
-    "googleapis/rpc/status"
-  ]
-  revision = "11a468237815f3a3ddf9f7c6e8b6b3b382a24d15"
-
-[[projects]]
   name = "google.golang.org/grpc"
-  packages = [
-    ".",
-    "balancer",
-    "balancer/base",
-    "balancer/roundrobin",
-    "channelz",
-    "codes",
-    "connectivity",
-    "credentials",
-    "encoding",
-    "encoding/proto",
-    "grpclb/grpc_lb_v1/messages",
-    "grpclog",
-    "internal",
-    "keepalive",
-    "metadata",
-    "naming",
-    "peer",
-    "resolver",
-    "resolver/dns",
-    "resolver/passthrough",
-    "stats",
-    "status",
-    "tap",
-    "transport"
-  ]
+  packages = ["grpclog"]
   revision = "41344da2231b913fa3d983840a57a6b1b7b631a1"
   version = "v1.12.0"
 
@@ -426,6 +372,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "6f188ea39c94cfe3bb6cae945a125180d6e6650ead007057c880998806d2990a"
+  inputs-digest = "f3e786ebda14f3603a749b7305f4a5af32bd6d28b35bd66c8a0a07fb5434519a"
   solver-name = "gps-cdcl"
   solver-version = 1

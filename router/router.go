@@ -1,6 +1,7 @@
 package router
 
 import (
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -15,7 +16,9 @@ import (
 	"github.com/opentracing/opentracing-go"
 	oplog "github.com/opentracing/opentracing-go/log"
 	"github.com/thoas/stats"
+	"github.com/unrolled/secure"
 	"github.com/urfave/negroni"
+	"golang.org/x/crypto/acme/autocert"
 	"gopkg.in/olahol/melody.v1"
 
 	"go.uber.org/zap"
@@ -31,6 +34,10 @@ type APIRouter struct {
 type GopherInfo struct {
 	ID, X, Y string
 }
+
+var myHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	w.Write([]byte("hello world"))
+})
 
 func handler(w http.ResponseWriter, r *http.Request) {
 	sp := opentracing.StartSpan("GET /home") // Start a new root span.
@@ -113,6 +120,21 @@ func NewServer(listen string, staticDir string, logger *zap.Logger) *APIRouter {
 	logMid := middleware.NewLogger(logger)
 	statMiddleware := stats.New()
 
+	secureMiddleware := secure.New(secure.Options{
+		HostsProxyHeaders:     []string{"X-Forwarded-Host"},
+		SSLRedirect:           true,
+		SSLHost:               listen,
+		SSLProxyHeaders:       map[string]string{"X-Forwarded-Proto": "https"},
+		STSSeconds:            315360000,
+		STSIncludeSubdomains:  true,
+		STSPreload:            true,
+		FrameDeny:             true,
+		ContentTypeNosniff:    true,
+		BrowserXssFilter:      true,
+		ContentSecurityPolicy: "script-src $NONCE",
+		PublicKey:             `pin-sha256="base64+primary=="; pin-sha256="base64+backup=="; max-age=5184000; includeSubdomains; report-uri="https://www.example.com/hpkp-report"`,
+	})
+
 	// api route setup
 	api := mux.NewRouter().PathPrefix("/api").Subrouter().StrictSlash(true)
 	api.HandleFunc("/", handler)
@@ -131,6 +153,7 @@ func NewServer(listen string, staticDir string, logger *zap.Logger) *APIRouter {
 	r.PathPrefix("/api").Handler(negroni.New(
 		recovery,
 		logMid,
+		negroni.HandlerFunc(secureMiddleware.HandlerFuncWithNext),
 		statMiddleware,
 		negroni.Wrap(api),
 	))
@@ -178,24 +201,43 @@ func NewServer(listen string, staticDir string, logger *zap.Logger) *APIRouter {
 	r.PathPrefix("/").Handler(negroni.New(
 		recovery,
 		logMid,
+		negroni.HandlerFunc(secureMiddleware.HandlerFuncWithNext),
 		negroni.NewStatic(http.Dir(staticDir)),
 		negroni.Wrap(static),
 	))
 
+	// TLS certification
+	m := autocert.Manager{
+		Prompt:     autocert.AcceptTOS,
+		HostPolicy: autocert.HostWhitelist("disk.softagile.fr"),
+		Cache:      autocert.DirCache("./letsencrypt/"),
+	}
+
 	// create the server,
 	srv := &APIRouter{http.Server{
 		Addr: listen,
+		TLSConfig: &tls.Config{
+			GetCertificate: m.GetCertificate,
+		},
 		// Good practice to set timeouts to avoid Slowloris attacks.
 		WriteTimeout: time.Second * 15,
 		ReadTimeout:  time.Second * 15,
 		IdleTimeout:  time.Second * 60,
 		Handler:      r, // Pass our instance of gorilla/mux in.
 	}, r, logger}
+
 	// Run our server in a goroutine so that it doesn't block.
 	go func() {
-		if err := srv.ListenAndServe(); err != nil {
-			logger.Fatal("Server stop with errorv", zap.Error(err))
+		if err := srv.ListenAndServeTLS("", ""); err != nil {
+			logger.Fatal("Server stop with error", zap.Error(err))
 		}
 	}()
+
+	go func() {
+		if err := http.ListenAndServe(":8080", secureMiddleware.Handler(myHandler)); err != nil {
+			logger.Fatal("Server stop with error", zap.Error(err))
+		}
+	}()
+
 	return srv
 }
