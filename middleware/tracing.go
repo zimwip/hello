@@ -44,8 +44,9 @@ func NewLogger(log *zap.Logger) *Logger {
 
 func (l *Logger) ServeHTTP(rw http.ResponseWriter, r *http.Request, next http.HandlerFunc) {
 	start := time.Now()
+	opName := opNameFunc(r)
 	//Add data to context
-	sp := opentracing.StartSpan(r.Method + " " + r.URL.Path) // Start a new root span.
+	sp := opentracing.StartSpan(opName) // Start a new root span.
 	defer sp.Finish()
 	ctx := context.WithValue(r.Context(), "span", sp)
 	next(rw, r.WithContext(ctx))
@@ -67,4 +68,13 @@ func (l *Logger) ServeHTTP(rw http.ResponseWriter, r *http.Request, next http.Ha
 		zap.String("Method", r.Method),
 		zap.String("URL", r.URL.Path),
 	)
+}
+
+func opNameFunc(r *http.Request) string {
+	if route := mux.CurrentRoute(r); route != nil {
+		if tpl, err := route.GetPathTemplate(); err == nil {
+			return r.Proto + " " + r.Method + " " + tpl
+		}
+	}
+	return r.Proto + " " + r.Method
 }
