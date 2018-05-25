@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -111,6 +112,8 @@ Create a new server listen to API call and static file
 return an APIRouter
 */
 func NewServer(listen string, staticDir string, logger *zap.Logger) *APIRouter {
+	isDev := os.Getenv("ENVIRONMENT") == "Development"
+
 	// master router
 	r := mux.NewRouter()
 	// Set up classic Negroni Middleware
@@ -133,6 +136,7 @@ func NewServer(listen string, staticDir string, logger *zap.Logger) *APIRouter {
 		BrowserXssFilter:      true,
 		ContentSecurityPolicy: "script-src $NONCE",
 		PublicKey:             `pin-sha256="base64+primary=="; pin-sha256="base64+backup=="; max-age=5184000; includeSubdomains; report-uri="https://www.example.com/hpkp-report"`,
+		IsDevelopment:         isDev,
 	})
 
 	// api route setup
