@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"flag"
-	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
@@ -25,29 +24,19 @@ func main() {
 	var wait time.Duration
 	// Parse cmd line value
 	flag.DurationVar(&wait, "graceful-timeout", time.Second*15, "the duration for which the server gracefully wait for existing connections to finish - e.g. 15s or 1m")
-	cluster := flag.String("cluster", "http://127.0.0.1:9021", "comma separated cluster peers")
 	staticDir := flag.String("dir", "./public", "Static file to server")
-	id := flag.Int("id", 1, "node ID")
-	kvport := flag.Int("port", 9121, "key-value server port")
-	join := flag.Bool("join", false, "join an existing cluster")
 	appdashPort := flag.Int("appdash.port", 8700, "Run appdash locally on this port.")
 	flag.Parse()
 
 	cfg := zap.NewProductionConfig()
 	cfg.EncoderConfig.EncodeLevel = zapcore.CapitalLevelEncoder
-	cfg.OutputPaths = []string{"hello.log", "stdout"}
+
+	cfg.OutputPaths = config.GetStringSlice("app.log.out")
 	log, err := cfg.Build()
 	if err != nil {
 		panic(err)
 	}
 	defer log.Sync()
-
-	//exploit cmd line
-	fmt.Printf("cluster: %s, id: %d, kvPort: %d, join: %t\n", *cluster, *id, *kvport, *join)
-	fmt.Println(config.GetString("app.value"))
-
-	//test case
-	log.Info("check to make sure it works")
 
 	var tracer opentracing.Tracer
 	// Would it make sense to embed Appdash?
@@ -60,7 +49,7 @@ func main() {
 	sa.Setup(":1234")
 	go sa.Serve()
 
-	srv := router.NewServer("0.0.0.0:9090", *staticDir, log)
+	srv := router.NewServer(":"+config.GetString("app.port"), *staticDir, log)
 
 	// Création d’une variable pour l’interception du signal de fin de programme
 	c := make(chan os.Signal, 1)

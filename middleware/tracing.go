@@ -8,6 +8,7 @@ import (
 	"github.com/opentracing/opentracing-go"
 	oplog "github.com/opentracing/opentracing-go/log"
 
+	"github.com/gorilla/mux"
 	"github.com/urfave/negroni"
 	"go.uber.org/zap"
 )
@@ -42,10 +43,20 @@ func NewLogger(log *zap.Logger) *Logger {
 	return logger
 }
 
+func opName(r *http.Request) string {
+	if route := mux.CurrentRoute(r); route != nil {
+		if tpl, err := route.GetPathTemplate(); err == nil {
+			return r.Proto + " " + r.Method + " " + tpl
+		}
+	}
+	return r.Proto + " " + r.Method + " " + r.URL.Path
+}
+
 func (l *Logger) ServeHTTP(rw http.ResponseWriter, r *http.Request, next http.HandlerFunc) {
 	start := time.Now()
+	operation := opName(r)
 	//Add data to context
-	sp := opentracing.StartSpan(r.Method + " " + r.URL.Path) // Start a new root span.
+	sp := opentracing.StartSpan(operation) // Start a new root span.
 	defer sp.Finish()
 	ctx := context.WithValue(r.Context(), "span", sp)
 	next(rw, r.WithContext(ctx))

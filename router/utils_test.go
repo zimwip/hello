@@ -5,7 +5,7 @@ import (
 )
 
 func TestMainFunc(t *testing.T) {
-	tls := mainTest()
+	tls := developmentTLSConfig()
 	if tls == nil {
 		t.Errorf("no error config generated")
 	}
