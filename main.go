@@ -49,7 +49,7 @@ func main() {
 	sa.Setup(":1234")
 	go sa.Serve()
 
-	srv := router.NewServer(":"+config.GetString("app.port"), *staticDir, log)
+	srv := router.NewServer(":"+config.GetString("app.secured_port"), ":"+config.GetString("app.port"), *staticDir, log)
 
 	// Création d’une variable pour l’interception du signal de fin de programme
 	c := make(chan os.Signal, 1)

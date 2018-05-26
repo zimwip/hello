@@ -66,10 +66,6 @@ func HealthCheckHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(`{"alive": true}`))
 }
 
-func GopherHandler(w http.ResponseWriter, r *http.Request) {
-
-}
-
 func PrintUsage(r *APIRouter) {
 	err := r.router.Walk(func(route *mux.Route, router *mux.Router, ancestors []*mux.Route) error {
 		pathTemplate, err := route.GetPathTemplate()
@@ -105,7 +101,7 @@ func PrintUsage(r *APIRouter) {
 Create a new server listen to API call and static file
 return an APIRouter
 */
-func NewServer(listen string, staticDir string, logger *zap.Logger) *APIRouter {
+func NewServer(secured_port string, port string, staticDir string, logger *zap.Logger) *APIRouter {
 
 	// master router
 	r := mux.NewRouter()
@@ -119,7 +115,7 @@ func NewServer(listen string, staticDir string, logger *zap.Logger) *APIRouter {
 	secureMiddleware := secure.New(secure.Options{
 		HostsProxyHeaders:    []string{"X-Forwarded-Host"},
 		SSLRedirect:          true,
-		SSLHost:              listen,
+		SSLHost:              secured_port,
 		SSLProxyHeaders:      map[string]string{"X-Forwarded-Proto": "https"},
 		STSSeconds:           315360000,
 		STSIncludeSubdomains: true,
@@ -140,11 +136,8 @@ func NewServer(listen string, staticDir string, logger *zap.Logger) *APIRouter {
 	api.HandleFunc("/health", HealthCheckHandler)
 	api.HandleFunc("/stats", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-
 		stats := statMiddleware.Data()
-
 		b, _ := json.Marshal(stats)
-
 		w.Write(b)
 	})
 	r.PathPrefix("/api").Handler(negroni.New(
@@ -202,10 +195,12 @@ func NewServer(listen string, staticDir string, logger *zap.Logger) *APIRouter {
 		negroni.NewStatic(http.Dir(staticDir)),
 		negroni.Wrap(static),
 	))
+
+	// get TLSConfig
 	tlsConfig, manager := GetTLSConfig()
 	// create the server,
 	srv := &APIRouter{http.Server{
-		Addr:      listen,
+		Addr:      secured_port,
 		TLSConfig: tlsConfig,
 		// Good practice to set timeouts to avoid Slowloris attacks.
 		WriteTimeout: time.Second * 15,
@@ -224,7 +219,7 @@ func NewServer(listen string, staticDir string, logger *zap.Logger) *APIRouter {
 	// allow ACME call to be performed
 	go func() {
 		if !config.IsDev() && manager != nil {
-			if err := http.ListenAndServe(":80", manager.HTTPHandler(nil)); err != nil {
+			if err := http.ListenAndServe(port, manager.HTTPHandler(nil)); err != nil {
 				logger.Fatal("Server stop with error", zap.Error(err))
 			}
 		}
