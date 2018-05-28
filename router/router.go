@@ -125,7 +125,7 @@ func NewServer(secured_port string, port string, staticDir string, logger *zap.L
 		BrowserXssFilter:     true,
 		//		ContentSecurityPolicy: "script-src $NONCE",
 		PublicKey:     `pin-sha256="base64+primary=="; pin-sha256="base64+backup=="; max-age=5184000; includeSubdomains; report-uri="https://www.example.com/hpkp-report"`,
-		IsDevelopment: config.IsDev(),
+		IsDevelopment: config.Config().IsDev(),
 	})
 
 	// api route setup
@@ -218,7 +218,7 @@ func NewServer(secured_port string, port string, staticDir string, logger *zap.L
 
 	// allow ACME call to be performed
 	go func() {
-		if !config.IsDev() && manager != nil {
+		if !config.Config().IsDev() && manager != nil {
 			if err := http.ListenAndServe(port, manager.HTTPHandler(nil)); err != nil {
 				logger.Fatal("Server stop with error", zap.Error(err))
 			}

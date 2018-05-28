@@ -2,23 +2,31 @@ package config
 
 import (
 	"fmt"
+    "sync"
+	"os"
+
 	"github.com/fsnotify/fsnotify"
 	"github.com/spf13/viper"
-	"os"
 )
 
-var (
-	isDev  bool
+type config struct {
+    isDev  bool
 	env    string
 	change chan bool
+    mu     sync.RWMutex
+}
+
+var (
+    c *config
+    once sync.Once
 )
 
-func init() {
-
-	change = make(chan bool)
+func Config() *config {
+    once.Do(func () {
 	fmt.Println("Configuration initialisation")
-	env = os.Getenv("ENVIRONMENT")
-	isDev = env == "DEV"
+    change := make(chan bool)
+    env := os.Getenv("ENVIRONMENT")
+    isDev := env == "DEV"
 	if isDev {
 		fmt.Println("Loading DEVELOPMENT environment")
 	} else {
@@ -38,18 +46,25 @@ func init() {
 	viper.WatchConfig()
 	viper.OnConfigChange(func(e fsnotify.Event) {
 		fmt.Println("Config file changed:", e.Name)
-		change <- true
+		c.change <- true
 	})
+        c = &config{
+            change : change,
+            isDev : isDev,
+            env : env,
+        }
+    })
+    return c
 }
 
-func GetString(key string) string {
+func (c *config) GetString(key string) string {
 	return viper.GetString(key)
 }
 
-func GetStringSlice(key string) []string {
+func (c *config) GetStringSlice(key string) []string {
 	return viper.GetStringSlice(key)
 }
 
-func IsDev() bool {
-	return isDev
+func (c* config) IsDev() bool {
+	return c.isDev
 }

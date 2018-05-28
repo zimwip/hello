@@ -31,7 +31,7 @@ func main() {
 	cfg := zap.NewProductionConfig()
 	cfg.EncoderConfig.EncodeLevel = zapcore.CapitalLevelEncoder
 
-	cfg.OutputPaths = config.GetStringSlice("app.log.out")
+	cfg.OutputPaths = config.Config().GetStringSlice("app.log.out")
 	log, err := cfg.Build()
 	if err != nil {
 		panic(err)
@@ -49,7 +49,7 @@ func main() {
 	sa.Setup(":1234")
 	go sa.Serve()
 
-	srv := router.NewServer(":"+config.GetString("app.secured_port"), ":"+config.GetString("app.port"), *staticDir, log)
+	srv := router.NewServer(":"+config.Config().GetString("app.secured_port"), ":"+config.Config().GetString("app.port"), *staticDir, log)
 
 	// Création d’une variable pour l’interception du signal de fin de programme
 	c := make(chan os.Signal, 1)

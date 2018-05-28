@@ -39,7 +39,7 @@ func CertTemplate() (*x509.Certificate, error) {
 }
 
 func GetTLSConfig() (*tls.Config, *autocert.Manager) {
-	if config.IsDev() {
+	if config.Config().IsDev() {
 		return developmentTLSConfig()
 	} else {
 		return productionTLSConfig()
@@ -50,7 +50,7 @@ func productionTLSConfig() (*tls.Config, *autocert.Manager) {
 	// TLS certification
 	m := autocert.Manager{
 		Prompt:     autocert.AcceptTOS,
-		HostPolicy: autocert.HostWhitelist(config.GetString("app.hostname")),
+		HostPolicy: autocert.HostWhitelist(config.Config().GetString("app.hostname")),
 		Cache:      autocert.DirCache("./letsencrypt/"),
 	}
 
@@ -76,7 +76,7 @@ func developmentTLSConfig() (*tls.Config, *autocert.Manager) {
 	rootCertTmpl.IsCA = true
 	rootCertTmpl.KeyUsage = x509.KeyUsageCertSign | x509.KeyUsageDigitalSignature
 	rootCertTmpl.ExtKeyUsage = []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth}
-	rootCertTmpl.DNSNames = []string{config.GetString("app.hostname")}
+	rootCertTmpl.DNSNames = []string{config.Config().GetString("app.hostname")}
 
 	rootCert, rootCertPEM, err := CreateCert(rootCertTmpl, rootCertTmpl, &rootKey.PublicKey, rootKey)
 	if err != nil {
