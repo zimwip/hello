@@ -1,16 +1,15 @@
 package router
 
 import (
-	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"os"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/zimwip/hello/config"
 	"github.com/zimwip/hello/middleware"
 
 	"github.com/gorilla/mux"
@@ -19,7 +18,6 @@ import (
 	"github.com/thoas/stats"
 	"github.com/unrolled/secure"
 	"github.com/urfave/negroni"
-	"golang.org/x/crypto/acme/autocert"
 	"gopkg.in/olahol/melody.v1"
 
 	"go.uber.org/zap"
@@ -35,10 +33,6 @@ type APIRouter struct {
 type GopherInfo struct {
 	ID, X, Y string
 }
-
-var myHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-	w.Write([]byte("hello world"))
-})
 
 func handler(w http.ResponseWriter, r *http.Request) {
 	sp := opentracing.StartSpan("GET /home") // Start a new root span.
@@ -70,10 +64,6 @@ func HealthCheckHandler(w http.ResponseWriter, r *http.Request) {
 	// In the future we could report back on the status of our DB, or our cache
 	// (e.g. Redis) by performing a simple PING, and include them in the response.
 	w.Write([]byte(`{"alive": true}`))
-}
-
-func GopherHandler(w http.ResponseWriter, r *http.Request) {
-
 }
 
 func PrintUsage(r *APIRouter) {
@@ -111,8 +101,7 @@ func PrintUsage(r *APIRouter) {
 Create a new server listen to API call and static file
 return an APIRouter
 */
-func NewServer(listen string, staticDir string, logger *zap.Logger) *APIRouter {
-	isDev := os.Getenv("ENVIRONMENT") == "Development"
+func NewServer(secured_port string, port string, staticDir string, logger *zap.Logger) *APIRouter {
 
 	// master router
 	r := mux.NewRouter()
@@ -124,19 +113,19 @@ func NewServer(listen string, staticDir string, logger *zap.Logger) *APIRouter {
 	statMiddleware := stats.New()
 
 	secureMiddleware := secure.New(secure.Options{
-		HostsProxyHeaders:     []string{"X-Forwarded-Host"},
-		SSLRedirect:           true,
-		SSLHost:               listen,
-		SSLProxyHeaders:       map[string]string{"X-Forwarded-Proto": "https"},
-		STSSeconds:            315360000,
-		STSIncludeSubdomains:  true,
-		STSPreload:            true,
-		FrameDeny:             true,
-		ContentTypeNosniff:    true,
-		BrowserXssFilter:      true,
-		ContentSecurityPolicy: "script-src $NONCE",
-		PublicKey:             `pin-sha256="base64+primary=="; pin-sha256="base64+backup=="; max-age=5184000; includeSubdomains; report-uri="https://www.example.com/hpkp-report"`,
-		IsDevelopment:         isDev,
+		HostsProxyHeaders:    []string{"X-Forwarded-Host"},
+		SSLRedirect:          true,
+		SSLHost:              secured_port,
+		SSLProxyHeaders:      map[string]string{"X-Forwarded-Proto": "https"},
+		STSSeconds:           315360000,
+		STSIncludeSubdomains: true,
+		STSPreload:           true,
+		FrameDeny:            true,
+		ContentTypeNosniff:   true,
+		BrowserXssFilter:     true,
+		//		ContentSecurityPolicy: "script-src $NONCE",
+		PublicKey:     `pin-sha256="base64+primary=="; pin-sha256="base64+backup=="; max-age=5184000; includeSubdomains; report-uri="https://www.example.com/hpkp-report"`,
+		IsDevelopment: config.IsDev(),
 	})
 
 	// api route setup
@@ -147,11 +136,8 @@ func NewServer(listen string, staticDir string, logger *zap.Logger) *APIRouter {
 	api.HandleFunc("/health", HealthCheckHandler)
 	api.HandleFunc("/stats", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-
 		stats := statMiddleware.Data()
-
 		b, _ := json.Marshal(stats)
-
 		w.Write(b)
 	})
 	r.PathPrefix("/api").Handler(negroni.New(
@@ -210,19 +196,12 @@ func NewServer(listen string, staticDir string, logger *zap.Logger) *APIRouter {
 		negroni.Wrap(static),
 	))
 
-	// TLS certification
-	m := autocert.Manager{
-		Prompt:     autocert.AcceptTOS,
-		HostPolicy: autocert.HostWhitelist("disk.softagile.fr"),
-		Cache:      autocert.DirCache("./letsencrypt/"),
-	}
-
+	// get TLSConfig
+	tlsConfig, manager := GetTLSConfig()
 	// create the server,
 	srv := &APIRouter{http.Server{
-		Addr: listen,
-		TLSConfig: &tls.Config{
-			GetCertificate: m.GetCertificate,
-		},
+		Addr:      secured_port,
+		TLSConfig: tlsConfig,
 		// Good practice to set timeouts to avoid Slowloris attacks.
 		WriteTimeout: time.Second * 15,
 		ReadTimeout:  time.Second * 15,
@@ -237,9 +216,12 @@ func NewServer(listen string, staticDir string, logger *zap.Logger) *APIRouter {
 		}
 	}()
 
+	// allow ACME call to be performed
 	go func() {
-		if err := http.ListenAndServe(":8080", secureMiddleware.Handler(myHandler)); err != nil {
-			logger.Fatal("Server stop with error", zap.Error(err))
+		if !config.IsDev() && manager != nil {
+			if err := http.ListenAndServe(port, manager.HTTPHandler(nil)); err != nil {
+				logger.Fatal("Server stop with error", zap.Error(err))
+			}
 		}
 	}()
 

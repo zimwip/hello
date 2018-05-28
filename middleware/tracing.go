@@ -8,6 +8,7 @@ import (
 	"github.com/opentracing/opentracing-go"
 	oplog "github.com/opentracing/opentracing-go/log"
 
+	"github.com/gorilla/mux"
 	"github.com/urfave/negroni"
 	"go.uber.org/zap"
 )
@@ -40,6 +41,15 @@ type Logger struct {
 func NewLogger(log *zap.Logger) *Logger {
 	logger := &Logger{Logger: log, dateFormat: LoggerDefaultDateFormat}
 	return logger
+}
+
+func opName(r *http.Request) string {
+	if route := mux.CurrentRoute(r); route != nil {
+		if tpl, err := route.GetPathTemplate(); err == nil {
+			return r.Proto + " " + r.Method + " " + tpl
+		}
+	}
+	return r.Proto + " " + r.Method + " " + r.URL.Path
 }
 
 func (l *Logger) ServeHTTP(rw http.ResponseWriter, r *http.Request, next http.HandlerFunc) {

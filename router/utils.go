@@ -1,18 +1,21 @@
 package router
 
 import (
+	"encoding/pem"
+	"errors"
+	"log"
+	"math/big"
+	"time"
+
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
-	"encoding/pem"
-	"errors"
-	"fmt"
-	"log"
-	"math/big"
-	"net"
-	"time"
+
+	"golang.org/x/crypto/acme/autocert"
+
+	"github.com/zimwip/hello/config"
 )
 
 // helper function to create a cert template with a serial number and other required fields
@@ -35,7 +38,30 @@ func CertTemplate() (*x509.Certificate, error) {
 	return &tmpl, nil
 }
 
-func mainTest() *tls.Config {
+func GetTLSConfig() (*tls.Config, *autocert.Manager) {
+	if config.IsDev() {
+		return developmentTLSConfig()
+	} else {
+		return productionTLSConfig()
+	}
+}
+
+func productionTLSConfig() (*tls.Config, *autocert.Manager) {
+	// TLS certification
+	m := autocert.Manager{
+		Prompt:     autocert.AcceptTOS,
+		HostPolicy: autocert.HostWhitelist(config.GetString("app.hostname")),
+		Cache:      autocert.DirCache("./letsencrypt/"),
+	}
+
+	tls := &tls.Config{
+		GetCertificate: m.GetCertificate,
+	}
+	return tls, &m
+
+}
+
+func developmentTLSConfig() (*tls.Config, *autocert.Manager) {
 	// generate a new key-pair
 	rootKey, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
@@ -50,14 +76,16 @@ func mainTest() *tls.Config {
 	rootCertTmpl.IsCA = true
 	rootCertTmpl.KeyUsage = x509.KeyUsageCertSign | x509.KeyUsageDigitalSignature
 	rootCertTmpl.ExtKeyUsage = []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth}
-	rootCertTmpl.IPAddresses = []net.IP{net.ParseIP("127.0.0.1")}
+	rootCertTmpl.DNSNames = []string{config.GetString("app.hostname")}
 
 	rootCert, rootCertPEM, err := CreateCert(rootCertTmpl, rootCertTmpl, &rootKey.PublicKey, rootKey)
 	if err != nil {
 		log.Fatalf("error creating cert: %v", err)
 	}
-	fmt.Printf("%s\n", rootCertPEM)
-	fmt.Printf("%#x\n", rootCert.Signature) // more ugly binary
+	if rootCert.Signature == nil {
+	}
+	//	fmt.Printf("%s\n", rootCertPEM)
+	//	fmt.Printf("%#x\n", rootCert.Signature) // more ugly binary
 	// PEM encode the private key
 	rootKeyPEM := pem.EncodeToMemory(&pem.Block{
 		Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(rootKey),
@@ -73,7 +101,7 @@ func mainTest() *tls.Config {
 	tlsConfig := &tls.Config{
 		Certificates: []tls.Certificate{rootTLSCert},
 	}
-	return tlsConfig
+	return tlsConfig, nil
 }
 
 // Create self-signed certificate

@@ -20,12 +20,16 @@ RUN go build -ldflags '-w -s' -a -installsuffix cgo -o /go/bin/goapp
 # start from scratch
 FROM scratch
 WORKDIR /app
-COPY config.yml .
+# ADD local docker config
+COPY docker/config.yml .
 COPY --from=build-env /etc/passwd /etc/passwd
 # ADD our static linked executable
 COPY --from=build-env /go/bin/goapp /app/
 COPY --from=build-env /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 USER appuser
 EXPOSE 9090
+EXPOSE 8090
+EXPOSE 8700
+ENV ENVIRONMENT DEV
 # tell how to run this container
 ENTRYPOINT ["./goapp"]
