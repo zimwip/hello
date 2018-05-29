@@ -3,10 +3,15 @@ package main
 import (
 	"context"
 	"flag"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
+
+	"github.com/zimwip/hello/infrastructure"
+	"github.com/zimwip/hello/interfaces"
+	"github.com/zimwip/hello/usecases"
 
 	"github.com/zimwip/hello/config"
 	"github.com/zimwip/hello/router"
@@ -69,4 +74,27 @@ func main() {
 	// to finalize based on context cancellation.
 	log.Info("shutting down")
 	os.Exit(0)
+}
+
+func cleanArchitectureMain() {
+	dbHandler := infrastructure.NewSqliteHandler("/var/tmp/production.sqlite")
+
+	handlers := make(map[string]interfaces.DbHandler)
+	handlers["DbUserRepo"] = dbHandler
+	handlers["DbCustomerRepo"] = dbHandler
+	handlers["DbItemRepo"] = dbHandler
+	handlers["DbOrderRepo"] = dbHandler
+
+	orderInteractor := new(usecases.OrderInteractor)
+	orderInteractor.UserRepository = interfaces.NewDbUserRepo(handlers)
+	orderInteractor.ItemRepository = interfaces.NewDbItemRepo(handlers)
+	orderInteractor.OrderRepository = interfaces.NewDbOrderRepo(handlers)
+
+	webserviceHandler := interfaces.WebserviceHandler{}
+	webserviceHandler.OrderInteractor = orderInteractor
+
+	http.HandleFunc("/orders", func(res http.ResponseWriter, req *http.Request) {
+		webserviceHandler.ShowOrder(res, req)
+	})
+	http.ListenAndServe(":8080", nil)
 }

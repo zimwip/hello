@@ -2,6 +2,8 @@
 
 prg_name="server"
 
+# export GOPATH=$GOPATH:`pwd`
+
 package=$1
 if [[ -z "$package" ]]; then
   package="."
