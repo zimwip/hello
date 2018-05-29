@@ -61,6 +61,9 @@ func main() {
 	signal.Notify(c, os.Interrupt)
 	signal.Notify(c, syscall.SIGTERM)
 	signal.Notify(c, syscall.SIGKILL)
+
+	cleanArchitectureMain()
+
 	// Block until we receive our signal.
 	<-c
 	// Create a deadline to wait for.
@@ -77,7 +80,7 @@ func main() {
 }
 
 func cleanArchitectureMain() {
-	dbHandler := infrastructure.NewSqliteHandler("/var/tmp/production.sqlite")
+	dbHandler := infrastructure.NewSqliteHandler("./bin/production.sqlite")
 
 	handlers := make(map[string]interfaces.DbHandler)
 	handlers["DbUserRepo"] = dbHandler

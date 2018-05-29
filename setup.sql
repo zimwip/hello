@@ -14,6 +14,3 @@ INSERT INTO items (id, name, value, available) VALUES (104, "Chair", 43.00, "yes
 
 INSERT INTO items2orders (item_id, order_id) VALUES (101, 60);
 INSERT INTO items2orders (item_id, order_id) VALUES (104, 60);
-
-# http://localhost:8080/orders?userId=40&orderId=60
-
