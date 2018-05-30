@@ -4,6 +4,6 @@ app:
     port: 8090
     secured_port: 9090
     log:
-        out: stdout hello.log
+        out: stdout server.log
 
 

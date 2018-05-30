@@ -46,14 +46,6 @@
   version = "1.0.2"
 
 [[constraint]]
-  branch = "master"
-  name = "github.com/thoas/stats"
-
-[[constraint]]
-  name = "github.com/urfave/negroni"
-  version = "0.3.0"
-
-[[constraint]]
   name = "go.uber.org/zap"
   version = "1.8.0"
 

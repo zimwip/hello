@@ -1,7 +1,6 @@
 package router
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -15,9 +14,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/opentracing/opentracing-go"
 	oplog "github.com/opentracing/opentracing-go/log"
-	"github.com/thoas/stats"
 	"github.com/unrolled/secure"
-	"github.com/urfave/negroni"
 	"gopkg.in/olahol/melody.v1"
 
 	"go.uber.org/zap"
@@ -106,11 +103,12 @@ func NewServer(secured_port string, port string, staticDir string, logger *zap.L
 	// master router
 	r := mux.NewRouter()
 	// Set up classic Negroni Middleware
-	recovery := negroni.NewRecovery()
-	recovery.Formatter = &negroni.HTMLPanicFormatter{}
+	recovery := middleware.NewRecovery()
+	recovery.Formatter = &middleware.HTMLPanicFormatter{}
 	recovery.PrintStack = true
-	logMid := middleware.NewLogger(logger)
-	statMiddleware := stats.New()
+
+	r.Use(middleware.NewLogger(logger).Middleware)
+	r.Use(recovery.Middleware)
 
 	secureMiddleware := secure.New(secure.Options{
 		HostsProxyHeaders:    []string{"X-Forwarded-Host"},
@@ -128,25 +126,15 @@ func NewServer(secured_port string, port string, staticDir string, logger *zap.L
 		IsDevelopment: config.Config().IsDev(),
 	})
 
+	r.Use(secureMiddleware.Handler)
+
 	// api route setup
-	api := mux.NewRouter().PathPrefix("/api").Subrouter().StrictSlash(true)
+	api := r.PathPrefix("/api").Subrouter().StrictSlash(true)
 	api.HandleFunc("/", handler)
 	api.HandleFunc("/articles/{category}", handler).Methods("GET")
 	api.HandleFunc("/panic", panicHandler)
 	api.HandleFunc("/health", HealthCheckHandler)
-	api.HandleFunc("/stats", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		stats := statMiddleware.Data()
-		b, _ := json.Marshal(stats)
-		w.Write(b)
-	})
-	r.PathPrefix("/api").Handler(negroni.New(
-		recovery,
-		logMid,
-		negroni.HandlerFunc(secureMiddleware.HandlerFuncWithNext),
-		statMiddleware,
-		negroni.Wrap(api),
-	))
+
 	// Now websocket test
 	mrouter := melody.New()
 	gophers := make(map[*melody.Session]*GopherInfo)
@@ -156,6 +144,7 @@ func NewServer(secured_port string, port string, staticDir string, logger *zap.L
 	r.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
 		mrouter.HandleRequest(w, r)
 	})
+
 	mrouter.HandleConnect(func(s *melody.Session) {
 		lock.Lock()
 		for _, info := range gophers {
@@ -186,15 +175,10 @@ func NewServer(secured_port string, port string, staticDir string, logger *zap.L
 		lock.Unlock()
 	})
 
-	// Now server static file should be last to allow ws.
-	static := mux.NewRouter().PathPrefix("/").Subrouter().StrictSlash(true)
-	r.PathPrefix("/").Handler(negroni.New(
-		recovery,
-		logMid,
-		negroni.HandlerFunc(secureMiddleware.HandlerFuncWithNext),
-		negroni.NewStatic(http.Dir(staticDir)),
-		negroni.Wrap(static),
-	))
+	// static route
+	static := r.PathPrefix("/").Subrouter().StrictSlash(true)
+	static.HandleFunc("/", handler)
+	static.Use(middleware.NewStatic(http.Dir(staticDir)).Middleware)
 
 	// get TLSConfig
 	tlsConfig, manager := GetTLSConfig()

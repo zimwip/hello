@@ -250,21 +250,9 @@
 
 [[projects]]
   branch = "master"
-  name = "github.com/thoas/stats"
-  packages = ["."]
-  revision = "37829025d2242afb04d91572cb143e00019e2aac"
-
-[[projects]]
-  branch = "master"
   name = "github.com/unrolled/secure"
   packages = ["."]
   revision = "a1cf62cc2159fff407728f118c41aece76c397fa"
-
-[[projects]]
-  name = "github.com/urfave/negroni"
-  packages = ["."]
-  revision = "5dbbc83f748fc3ad38585842b0aedab546d0ea1e"
-  version = "v0.3.0"
 
 [[projects]]
   name = "github.com/xiang90/probing"
@@ -378,6 +366,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "dbe44f0e99ec20a4ecf6dec9734b28b7ca91f333e0436966aec7cf6d6ad3ca77"
+  inputs-digest = "9b8cf12d168a65243c82542c289fd228d5212df660dc154bf018c4570718adee"
   solver-name = "gps-cdcl"
   solver-version = 1
