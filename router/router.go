@@ -32,8 +32,17 @@ type GopherInfo struct {
 }
 
 func handler(w http.ResponseWriter, r *http.Request) {
-	sp := opentracing.StartSpan("GET /home") // Start a new root span.
+	ctx := r.Context()
+	var parentCtx opentracing.SpanContext
+	parentSpan := opentracing.SpanFromContext(r.Context())
+	if parentSpan != nil {
+		parentCtx = parentSpan.Context()
+	}
+
+	sp := opentracing.StartSpan("handler", opentracing.ChildOf(parentCtx)) // Start a new root span.
 	defer sp.Finish()
+	ctx = opentracing.ContextWithSpan(ctx, sp)
+
 	vars := mux.Vars(r)
 	w.WriteHeader(http.StatusOK)
 	sp.LogFields(
@@ -41,8 +50,8 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		oplog.String("type", "cache timeout"),
 		oplog.Int("waited.millis", 1500))
 	csp := opentracing.StartSpan("Event 1", opentracing.ChildOf(sp.Context()))
-	csp.LogFields(oplog.String("test", "test"))
 	defer csp.Finish()
+	csp.LogFields(oplog.String("test", "test"))
 	fmt.Fprintf(w, "Category: %v\n", vars["category"])
 	w.Write([]byte("Gorilla!\n"))
 }

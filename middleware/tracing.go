@@ -1,7 +1,6 @@
 package middleware
 
 import (
-	"context"
 	"net/http"
 	"time"
 
@@ -92,7 +91,7 @@ func (l *Logger) Middleware(next http.Handler) http.Handler {
 		//Add data to context
 		sp := opentracing.StartSpan(opName) // Start a new root span.
 		defer sp.Finish()
-		ctx := context.WithValue(r.Context(), "span", sp)
+		ctx := opentracing.ContextWithSpan(r.Context(), sp)
 		res := NewMyResponseWriter(rw)
 		next.ServeHTTP(res, r.WithContext(ctx))
 		duration := time.Since(start)
