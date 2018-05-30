@@ -1,6 +1,9 @@
 package middleware
 
 import (
+	"bufio"
+	"fmt"
+	"net"
 	"net/http"
 	"time"
 
@@ -11,33 +14,41 @@ import (
 	"go.uber.org/zap"
 )
 
-// Create our own MyResponseWriter to wrap a standard http.ResponseWriter
+// Create our own logResponseWriter to wrap a standard http.ResponseWriter
 // so we can store the status code.
-type MyResponseWriter struct {
+type logResponseWriter struct {
 	status int
 	http.ResponseWriter
 }
 
-func NewMyResponseWriter(res http.ResponseWriter) *MyResponseWriter {
+func NewlogResponseWriter(res http.ResponseWriter) *logResponseWriter {
 	// Default the status code to 200
-	return &MyResponseWriter{200, res}
+	return &logResponseWriter{200, res}
 }
 
 // Give a way to get the status
-func (w MyResponseWriter) Status() int {
+func (w logResponseWriter) Status() int {
 	return w.status
 }
 
 // Satisfy the http.ResponseWriter interface
-func (w MyResponseWriter) Header() http.Header {
+func (w logResponseWriter) Header() http.Header {
 	return w.ResponseWriter.Header()
 }
 
-func (w MyResponseWriter) Write(data []byte) (int, error) {
+func (w logResponseWriter) Write(data []byte) (int, error) {
 	return w.ResponseWriter.Write(data)
 }
 
-func (w MyResponseWriter) WriteHeader(statusCode int) {
+func (rw *logResponseWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	hijacker, ok := rw.ResponseWriter.(http.Hijacker)
+	if !ok {
+		return nil, nil, fmt.Errorf("the ResponseWriter doesn't support the Hijacker interface")
+	}
+	return hijacker.Hijack()
+}
+
+func (w logResponseWriter) WriteHeader(statusCode int) {
 	// Store the status code
 	w.status = statusCode
 
@@ -92,7 +103,7 @@ func (l *Logger) Middleware(next http.Handler) http.Handler {
 		sp := opentracing.StartSpan(opName) // Start a new root span.
 		defer sp.Finish()
 		ctx := opentracing.ContextWithSpan(r.Context(), sp)
-		res := NewMyResponseWriter(rw)
+		res := NewlogResponseWriter(rw)
 		next.ServeHTTP(res, r.WithContext(ctx))
 		duration := time.Since(start)
 		sp.LogFields(

@@ -184,6 +184,10 @@ func NewServer(secured_port string, port string, staticDir string, logger *zap.L
 		lock.Unlock()
 	})
 
+	mrouter.HandleError(func(s *melody.Session, err error) {
+		fmt.Printf("%s", err)
+	})
+
 	// static route
 	static := r.PathPrefix("/").Subrouter().StrictSlash(true)
 	static.HandleFunc("/", handler)

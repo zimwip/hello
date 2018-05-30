@@ -5,6 +5,7 @@
 *.so
 *.dylib
 *.log
+*.sqlite
 
 # Test binary, build with `go test -c`
 *.test
@@ -16,3 +17,4 @@
 vendor
 letsencrypt
 bin
+
