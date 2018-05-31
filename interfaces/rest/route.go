@@ -28,6 +28,7 @@ type Route struct {
 	Name             string
 	Method           []string
 	Pattern          string
+	ParentRoute      string
 	ContextedHandler *ContextedHandler
 }
 
@@ -35,7 +36,7 @@ type Route struct {
 type Routes []Route
 
 var (
-	routes     Routes = make([]Route, 1)
+	routes     Routes = make([]Route, 0)
 	appContext AppContext
 )
 

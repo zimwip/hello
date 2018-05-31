@@ -67,22 +67,18 @@ func NewGopher(context *AppContext, interactor WebsocketInteractor) {
 	}
 	interactor.RegisterHandler(handler)
 
-	webHandler := func(c *AppContext, w http.ResponseWriter, r *http.Request) {
-		interactor.HandleRequest(w, r)
-	}
-
 	contextedHandler := &ContextedHandler{
-		AppContext:           context,
-		ContextedHandlerFunc: webHandler,
+		AppContext: context,
+		ContextedHandlerFunc: func(c *AppContext, w http.ResponseWriter, r *http.Request) {
+			interactor.HandleRequest(w, r)
+		},
 	}
 
 	route := Route{
-		"Websocket",
-		//You can handle more than just GET requests here, but for this tutorial we'll just do GETs
-		[]string{},
-		"/ws",
-		// We defined HelloWorldHandler in Part1
-		contextedHandler,
+		Name:             "Websocket",
+		Method:           []string{}, //You can handle more than just GET requests here, but for this tutorial we'll just do GETs
+		Pattern:          "/ws",
+		ContextedHandler: contextedHandler, // We defined HelloWorldHandler in Part1
 	}
 	AddRoute(route)
 }

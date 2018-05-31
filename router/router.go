@@ -3,19 +3,16 @@ package router
 import (
 	"fmt"
 	"net/http"
-	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/zimwip/hello/config"
+	"github.com/zimwip/hello/infrastructure"
+	"github.com/zimwip/hello/interfaces/rest"
 	"github.com/zimwip/hello/middleware"
 
 	"github.com/gorilla/mux"
-	"github.com/opentracing/opentracing-go"
-	oplog "github.com/opentracing/opentracing-go/log"
 	"github.com/unrolled/secure"
-	"gopkg.in/olahol/melody.v1"
 
 	"go.uber.org/zap"
 )
@@ -24,52 +21,6 @@ type APIRouter struct {
 	http.Server
 	router *mux.Router
 	logger *zap.Logger
-}
-
-// GopherInfo contains information about the gopher on screen
-type GopherInfo struct {
-	ID, X, Y string
-}
-
-func handler(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	var parentCtx opentracing.SpanContext
-	parentSpan := opentracing.SpanFromContext(r.Context())
-	if parentSpan != nil {
-		parentCtx = parentSpan.Context()
-	}
-
-	sp := opentracing.StartSpan("handler", opentracing.ChildOf(parentCtx)) // Start a new root span.
-	defer sp.Finish()
-	ctx = opentracing.ContextWithSpan(ctx, sp)
-
-	vars := mux.Vars(r)
-	w.WriteHeader(http.StatusOK)
-	sp.LogFields(
-		oplog.String("event", "soft error"),
-		oplog.String("type", "cache timeout"),
-		oplog.Int("waited.millis", 1500))
-	csp := opentracing.StartSpan("Event 1", opentracing.ChildOf(sp.Context()))
-	defer csp.Finish()
-	csp.LogFields(oplog.String("test", "test"))
-	fmt.Fprintf(w, "Category: %v\n", vars["category"])
-	w.Write([]byte("Gorilla!\n"))
-}
-
-func panicHandler(w http.ResponseWriter, r *http.Request) {
-	sp := opentracing.StartSpan("GET /panic") // Start a new root span.
-	defer sp.Finish()
-	panic("Oh no !")
-}
-
-func HealthCheckHandler(w http.ResponseWriter, r *http.Request) {
-	// A very simple health check.
-	w.WriteHeader(http.StatusOK)
-	w.Header().Set("Content-Type", "application/json")
-
-	// In the future we could report back on the status of our DB, or our cache
-	// (e.g. Redis) by performing a simple PING, and include them in the response.
-	w.Write([]byte(`{"alive": true}`))
 }
 
 func PrintUsage(r *APIRouter) {
@@ -110,7 +61,8 @@ return an APIRouter
 func NewServer(secured_port string, port string, staticDir string, logger *zap.Logger) *APIRouter {
 
 	// master router
-	r := mux.NewRouter()
+	appContext := rest.AppContext{}
+	r := infrastructure.NewRouter(&appContext)
 	// Set up classic Negroni Middleware
 	recovery := middleware.NewRecovery()
 	recovery.Formatter = &middleware.HTMLPanicFormatter{}
@@ -137,60 +89,9 @@ func NewServer(secured_port string, port string, staticDir string, logger *zap.L
 
 	r.Use(secureMiddleware.Handler)
 
-	// api route setup
-	api := r.PathPrefix("/api").Subrouter().StrictSlash(true)
-	api.HandleFunc("/", handler)
-	api.HandleFunc("/articles/{category}", handler).Methods("GET")
-	api.HandleFunc("/panic", panicHandler)
-	api.HandleFunc("/health", HealthCheckHandler)
-
-	// Now websocket test
-	mrouter := melody.New()
-	gophers := make(map[*melody.Session]*GopherInfo)
-	lock := new(sync.Mutex)
-	counter := 0
-
-	r.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
-		mrouter.HandleRequest(w, r)
-	})
-
-	mrouter.HandleConnect(func(s *melody.Session) {
-		lock.Lock()
-		for _, info := range gophers {
-			s.Write([]byte("set " + info.ID + " " + info.X + " " + info.Y))
-		}
-		gophers[s] = &GopherInfo{strconv.Itoa(counter), "0", "0"}
-		s.Write([]byte("iam " + gophers[s].ID))
-		counter++
-		lock.Unlock()
-	})
-
-	mrouter.HandleDisconnect(func(s *melody.Session) {
-		lock.Lock()
-		mrouter.BroadcastOthers([]byte("dis "+gophers[s].ID), s)
-		delete(gophers, s)
-		lock.Unlock()
-	})
-
-	mrouter.HandleMessage(func(s *melody.Session, msg []byte) {
-		p := strings.Split(string(msg), " ")
-		lock.Lock()
-		info := gophers[s]
-		if len(p) == 2 {
-			info.X = p[0]
-			info.Y = p[1]
-			mrouter.BroadcastOthers([]byte("set "+info.ID+" "+info.X+" "+info.Y), s)
-		}
-		lock.Unlock()
-	})
-
-	mrouter.HandleError(func(s *melody.Session, err error) {
-		fmt.Printf("%s", err)
-	})
-
 	// static route
 	static := r.PathPrefix("/").Subrouter().StrictSlash(true)
-	static.HandleFunc("/", handler)
+	static.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {})
 	static.Use(middleware.NewStatic(http.Dir(staticDir)).Middleware)
 
 	// get TLSConfig
