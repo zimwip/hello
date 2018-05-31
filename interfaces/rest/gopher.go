@@ -11,7 +11,7 @@ import (
 )
 
 type Session interface {
-	Write(data []byte)
+	WriteMessage(data []byte)
 	BroadcastOthers(data []byte) error
 }
 
@@ -30,10 +30,10 @@ type WebsocketInteractor interface {
 func (handler *WebsocketHandler) HandleConnect(s Session) {
 	handler.lock.Lock()
 	for _, info := range handler.gophers {
-		s.Write([]byte("set " + info.ID + " " + info.X + " " + info.Y))
+		s.WriteMessage([]byte("set " + info.ID + " " + info.X + " " + info.Y))
 	}
 	handler.gophers[s] = &domain.GopherInfo{strconv.Itoa(handler.counter), "0", "0"}
-	s.Write([]byte("iam " + handler.gophers[s].ID))
+	s.WriteMessage([]byte("iam " + handler.gophers[s].ID))
 	handler.counter++
 	handler.lock.Unlock()
 }

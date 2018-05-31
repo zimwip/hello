@@ -23,8 +23,8 @@ func (s *Session) BroadcastOthers(msg []byte) error {
 	return err
 }
 
-func (s *Session) Write(msg []byte) {
-	s.Write(msg)
+func (s *Session) WriteMessage(msg []byte) {
+	s.session.Write(msg)
 }
 
 type Handler struct {
@@ -57,7 +57,6 @@ func NewRouter(appContext *rest.AppContext) *mux.Router {
 			} else {
 				cur = router.PathPrefix(route.ParentRoute).Subrouter().StrictSlash(true)
 				subRoutes[route.ParentRoute] = cur
-				log.Printf("Creating SubRoute %s %p", route.ParentRoute, cur)
 			}
 		}
 		log.Printf("Adding Route %s at %s%s, %p", route.Name, route.ParentRoute, route.Pattern, cur)
