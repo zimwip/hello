@@ -12,6 +12,7 @@ import (
 
 type Session interface {
 	Write(data []byte)
+	BroadcastOthers(data []byte) error
 }
 
 type WebsocketHandler struct {
@@ -23,11 +24,7 @@ type WebsocketHandler struct {
 
 type WebsocketInteractor interface {
 	HandleRequest(w http.ResponseWriter, r *http.Request) error
-	HandleConnect(func(s Session))
-	HandleDisconnect(func(s Session))
-	HandleMessage(func(s Session, msg []byte))
-	HandleError(func(s Session, err error))
-	BroadcastOthers(data []byte, session Session)
+	RegisterHandler(handler *WebsocketHandler)
 }
 
 func (handler *WebsocketHandler) HandleConnect(s Session) {
@@ -43,7 +40,7 @@ func (handler *WebsocketHandler) HandleConnect(s Session) {
 
 func (handler *WebsocketHandler) HandleDisconnect(s Session) {
 	handler.lock.Lock()
-	handler.interactor.BroadcastOthers([]byte("dis "+handler.gophers[s].ID), s)
+	s.BroadcastOthers([]byte("dis " + handler.gophers[s].ID))
 	delete(handler.gophers, s)
 	handler.lock.Unlock()
 }
@@ -54,7 +51,7 @@ func (handler *WebsocketHandler) HandleMessage(s Session, msg []byte) {
 	if len(p) == 2 {
 		info.X = p[0]
 		info.Y = p[1]
-		handler.interactor.BroadcastOthers([]byte("set "+info.ID+" "+info.X+" "+info.Y), s)
+		s.BroadcastOthers([]byte("set " + info.ID + " " + info.X + " " + info.Y))
 	}
 	handler.lock.Unlock()
 }
@@ -68,10 +65,7 @@ func NewGopher(context *AppContext, interactor WebsocketInteractor) {
 		gophers: make(map[Session]*domain.GopherInfo),
 		lock:    new(sync.Mutex),
 	}
-	interactor.HandleConnect(handler.HandleConnect)
-	interactor.HandleDisconnect(handler.HandleDisconnect)
-	interactor.HandleMessage(handler.HandleMessage)
-	interactor.HandleError(handler.HandleError)
+	interactor.RegisterHandler(handler)
 
 	webHandler := func(c *AppContext, w http.ResponseWriter, r *http.Request) {
 		interactor.HandleRequest(w, r)
