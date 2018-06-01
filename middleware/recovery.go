@@ -162,7 +162,7 @@ func (rec *Recovery) Middleware(next http.Handler) http.Handler {
 			if err := recover(); err != nil {
 				rw.WriteHeader(http.StatusInternalServerError)
 
-				stack := make([]byte, rec.StackSize)
+				stack := make([]byte, rec.StackSize)
 				stack = stack[:runtime.Stack(stack, rec.StackAll)]
 				infos := &PanicInformation{RecoveredPanic: err, Request: r}
 

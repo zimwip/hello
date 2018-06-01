@@ -42,9 +42,9 @@ func panicHandler(c *AppContext, w http.ResponseWriter, r *http.Request) {
 
 func NewAPI(context *AppContext) {
 
+	declareNewRoute(context, "Standard", []string{}, "/", "/api", handler)
 	declareNewRoute(context, "Article", []string{"GET"}, "/articles/{category}", "/api", handler)
 	declareNewRoute(context, "Panic", []string{}, "/panic", "/api", panicHandler)
-	declareNewRoute(context, "Standard", []string{}, "/", "/api", handler)
 
 }
 

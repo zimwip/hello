@@ -29,31 +29,32 @@ type WebsocketInteractor interface {
 
 func (handler *WebsocketHandler) HandleConnect(s Session) {
 	handler.lock.Lock()
+	defer handler.lock.Unlock()
 	for _, info := range handler.gophers {
 		s.WriteMessage([]byte("set " + info.ID + " " + info.X + " " + info.Y))
 	}
 	handler.gophers[s] = &domain.GopherInfo{strconv.Itoa(handler.counter), "0", "0"}
 	s.WriteMessage([]byte("iam " + handler.gophers[s].ID))
 	handler.counter++
-	handler.lock.Unlock()
 }
 
 func (handler *WebsocketHandler) HandleDisconnect(s Session) {
 	handler.lock.Lock()
+	defer handler.lock.Unlock()
 	s.BroadcastOthers([]byte("dis " + handler.gophers[s].ID))
 	delete(handler.gophers, s)
-	handler.lock.Unlock()
 }
+
 func (handler *WebsocketHandler) HandleMessage(s Session, msg []byte) {
 	p := strings.Split(string(msg), " ")
 	handler.lock.Lock()
+	defer handler.lock.Unlock()
 	info := handler.gophers[s]
 	if len(p) == 2 {
 		info.X = p[0]
 		info.Y = p[1]
 		s.BroadcastOthers([]byte("set " + info.ID + " " + info.X + " " + info.Y))
 	}
-	handler.lock.Unlock()
 }
 
 func (handler *WebsocketHandler) HandleError(s Session, err error) {

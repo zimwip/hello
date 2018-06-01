@@ -29,20 +29,36 @@ func (s *Session) WriteMessage(msg []byte) {
 
 type Handler struct {
 	*melody.Melody
+	sessions map[*melody.Session]*Session
+}
+
+func (h *Handler) localSession(s *melody.Session) *Session {
+	var localSession *Session
+	if val, ok := h.sessions[s]; ok {
+		localSession = val
+	} else {
+		localSession = &Session{session: s, melody: h.Melody}
+		h.sessions[s] = localSession
+	}
+	return localSession
 }
 
 func (h *Handler) RegisterHandler(handler *rest.WebsocketHandler) {
 	h.HandleConnect(func(s *melody.Session) {
-		handler.HandleConnect(&Session{session: s, melody: h.Melody})
+		localSession := h.localSession(s)
+		handler.HandleConnect(localSession)
 	})
 	h.HandleDisconnect(func(s *melody.Session) {
-		handler.HandleDisconnect(&Session{session: s, melody: h.Melody})
+		localSession := h.localSession(s)
+		handler.HandleDisconnect(localSession)
 	})
 	h.HandleMessage(func(s *melody.Session, msg []byte) {
-		handler.HandleMessage(&Session{session: s, melody: h.Melody}, msg)
+		localSession := h.localSession(s)
+		handler.HandleMessage(localSession, msg)
 	})
 	h.HandleError(func(s *melody.Session, err error) {
-		handler.HandleError(&Session{session: s, melody: h.Melody}, err)
+		localSession := h.localSession(s)
+		handler.HandleError(localSession, err)
 	})
 
 }
@@ -54,7 +70,7 @@ func NewRouter(appContext *rest.AppContext) *mux.Router {
 	cur := router
 
 	// Now websocket test
-	mrouter := &Handler{melody.New()}
+	mrouter := &Handler{melody.New(), make(map[*melody.Session]*Session)}
 	rest.NewGopher(appContext, mrouter)
 	rest.NewAPI(appContext)
 
