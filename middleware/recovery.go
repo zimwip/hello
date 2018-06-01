@@ -148,7 +148,7 @@ type Recovery struct {
 // NewRecovery returns a new instance of Recovery
 func NewRecovery() *Recovery {
 	return &Recovery{
-		Logger:     log.New(os.Stdout, "[negroni] ", 0),
+		Logger:     log.New(os.Stdout, "[recovery] ", 0),
 		PrintStack: true,
 		StackAll:   false,
 		StackSize:  1024 * 8,
@@ -162,7 +162,7 @@ func (rec *Recovery) Middleware(next http.Handler) http.Handler {
 			if err := recover(); err != nil {
 				rw.WriteHeader(http.StatusInternalServerError)
 
-				stack := make([]byte, rec.StackSize)
+				stack := make([]byte, rec.StackSize)
 				stack = stack[:runtime.Stack(stack, rec.StackAll)]
 				infos := &PanicInformation{RecoveredPanic: err, Request: r}
 

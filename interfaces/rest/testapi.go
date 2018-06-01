@@ -40,22 +40,11 @@ func panicHandler(c *AppContext, w http.ResponseWriter, r *http.Request) {
 	panic("Oh no !")
 }
 
-func HealthCheckHandler(c *AppContext, w http.ResponseWriter, r *http.Request) {
-	// A very simple health check.
-	w.WriteHeader(http.StatusOK)
-	w.Header().Set("Content-Type", "application/json")
-
-	// In the future we could report back on the status of our DB, or our cache
-	// (e.g. Redis) by performing a simple PING, and include them in the response.
-	w.Write([]byte(`{"alive": true}`))
-}
-
 func NewAPI(context *AppContext) {
 
-	declareNewRoute(context, "Standard", []string{}, "/", "/api", handler)
 	declareNewRoute(context, "Article", []string{"GET"}, "/articles/{category}", "/api", handler)
 	declareNewRoute(context, "Panic", []string{}, "/panic", "/api", panicHandler)
-	declareNewRoute(context, "Health", []string{}, "/health", "/api", HealthCheckHandler)
+	declareNewRoute(context, "Standard", []string{}, "/", "/api", handler)
 
 }
 

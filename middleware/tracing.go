@@ -27,31 +27,30 @@ func NewlogResponseWriter(res http.ResponseWriter) *logResponseWriter {
 }
 
 // Give a way to get the status
-func (w logResponseWriter) Status() int {
+func (w *logResponseWriter) Status() int {
 	return w.status
 }
 
 // Satisfy the http.ResponseWriter interface
-func (w logResponseWriter) Header() http.Header {
+func (w *logResponseWriter) Header() http.Header {
 	return w.ResponseWriter.Header()
 }
 
-func (w logResponseWriter) Write(data []byte) (int, error) {
+func (w *logResponseWriter) Write(data []byte) (int, error) {
 	return w.ResponseWriter.Write(data)
 }
 
-func (rw *logResponseWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
-	hijacker, ok := rw.ResponseWriter.(http.Hijacker)
+func (w *logResponseWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	hijacker, ok := w.ResponseWriter.(http.Hijacker)
 	if !ok {
 		return nil, nil, fmt.Errorf("the ResponseWriter doesn't support the Hijacker interface")
 	}
 	return hijacker.Hijack()
 }
 
-func (w logResponseWriter) WriteHeader(statusCode int) {
+func (w *logResponseWriter) WriteHeader(statusCode int) {
 	// Store the status code
 	w.status = statusCode
-
 	// Write the status code onward.
 	w.ResponseWriter.WriteHeader(statusCode)
 }
@@ -126,10 +125,5 @@ func (l *Logger) Middleware(next http.Handler) http.Handler {
 }
 
 func opNameFunc(r *http.Request) string {
-	if route := mux.CurrentRoute(r); route != nil {
-		if tpl, err := route.GetPathTemplate(); err == nil {
-			return r.Proto + " " + r.Method + " " + tpl
-		}
-	}
-	return r.Proto + " " + r.Method
+	return r.Proto + " " + r.Method + " " + r.URL.Path
 }

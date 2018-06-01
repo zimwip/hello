@@ -35,6 +35,16 @@ func (h *Handler) RegisterHandler(handler *rest.WebsocketHandler) {
 	h.HandleConnect(func(s *melody.Session) {
 		handler.HandleConnect(&Session{session: s, melody: h.Melody})
 	})
+	h.HandleDisconnect(func(s *melody.Session) {
+		handler.HandleDisconnect(&Session{session: s, melody: h.Melody})
+	})
+	h.HandleMessage(func(s *melody.Session, msg []byte) {
+		handler.HandleMessage(&Session{session: s, melody: h.Melody}, msg)
+	})
+	h.HandleError(func(s *melody.Session, err error) {
+		handler.HandleError(&Session{session: s, melody: h.Melody}, err)
+	})
+
 }
 
 //NewRouter returns a new Gorrila Mux router
