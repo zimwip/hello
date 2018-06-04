@@ -8,7 +8,8 @@ import (
 	"time"
 
 	"github.com/opentracing/opentracing-go"
-	oplog "github.com/opentracing/opentracing-go/log"
+	"github.com/opentracing/opentracing-go/ext"
+	"github.com/opentracing/opentracing-go/log"
 
 	"github.com/gorilla/mux"
 	"go.uber.org/zap"
@@ -99,19 +100,31 @@ func (l *Logger) Middleware(next http.Handler) http.Handler {
 		start := time.Now()
 		opName := opNameFunc(r)
 		//Add data to context
-		sp := opentracing.StartSpan(opName) // Start a new root span.
+		var sp opentracing.Span
+		wireContext, err := opentracing.GlobalTracer().Extract(
+			opentracing.TextMap,
+			opentracing.HTTPHeadersCarrier(r.Header))
+		if err != nil {
+			// If for whatever reason we can't join, go ahead an start a new root span.
+			sp = opentracing.StartSpan(opName)
+		} else {
+			sp = opentracing.StartSpan(opName, opentracing.ChildOf(wireContext))
+		}
 		defer sp.Finish()
 		ctx := opentracing.ContextWithSpan(r.Context(), sp)
 		res := NewlogResponseWriter(rw)
 		next.ServeHTTP(res, r.WithContext(ctx))
+		if res.Status() == 500 {
+			ext.Error.Set(sp, true) // Tag the span as errored
+		}
 		duration := time.Since(start)
 		sp.LogFields(
-			oplog.String("StartTime", start.Format(l.dateFormat)),
-			oplog.Int("Status", res.Status()),
-			oplog.Int64("Duration", int64(duration/time.Microsecond)),
-			oplog.String("Hostname", r.Host),
-			oplog.String("Method", r.Method),
-			oplog.String("URL", r.URL.Path))
+			log.String("StartTime", start.Format(l.dateFormat)),
+			log.Int("Status", res.Status()),
+			log.Int64("Duration", int64(duration/time.Microsecond)),
+			log.String("Hostname", r.Host),
+			log.String("Method", r.Method),
+			log.String("URL", r.URL.Path))
 
 		l.Info(r.URL.Path,
 			zap.String("StartTime", start.Format(l.dateFormat)),
