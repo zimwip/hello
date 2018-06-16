@@ -43,6 +43,7 @@ func main() {
 	}
 	defer log.Sync()
 
+	log.Info("starting server")
 	var tracer opentracing.Tracer
 	// Would it make sense to embed Appdash?
 	addr := startAppdashServer(*appdashPort)
