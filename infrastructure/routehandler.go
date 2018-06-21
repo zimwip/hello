@@ -13,6 +13,7 @@ var (
 	appContext rest.AppContext
 )
 
+// Session struct for melody session
 type Session struct {
 	session *melody.Session
 	melody  *melody.Melody
@@ -66,7 +67,8 @@ func (h *Handler) RegisterHandler(handler *rest.WebsocketHandler) {
 //NewRouter returns a new Gorrila Mux router
 func NewRouter(appContext *rest.AppContext) *mux.Router {
 	subRoutes := make(map[string]*mux.Router)
-	router := mux.NewRouter().StrictSlash(true)
+	router := mux.NewRouter()
+	log.Printf("Creating Root Router %p", router)
 	cur := router
 
 	// Now websocket test
@@ -82,17 +84,18 @@ func NewRouter(appContext *rest.AppContext) *mux.Router {
 				cur = val
 			} else {
 				cur = router.PathPrefix(route.ParentRoute).Subrouter().StrictSlash(true)
+				log.Printf("Adding Sub Router %s, %p", route.ParentRoute, cur)
 				subRoutes[route.ParentRoute] = cur
 			}
 		}
 		log.Printf("Adding Route %s at %s%s, %p", route.Name, route.ParentRoute, route.Pattern, cur)
-		cur.
-			Path(route.Pattern).
+		newRoute := cur.Path(route.Pattern).
 			Name(route.Name).
 			Handler(route.ContextedHandler)
 		if len(route.Method) > 0 {
-			cur.Methods(route.Method...)
+			newRoute = newRoute.Methods(route.Method...)
 		}
+
 	}
 	return router
 }

@@ -27,7 +27,7 @@ func PrintUsage(r *APIRouter) {
 	err := r.router.Walk(func(route *mux.Route, router *mux.Router, ancestors []*mux.Route) error {
 		pathTemplate, err := route.GetPathTemplate()
 		if err == nil {
-			fmt.Println("ROUTE:", pathTemplate)
+			fmt.Printf("ROUTE: %s, %p\n", pathTemplate, route)
 		}
 		pathRegexp, err := route.GetPathRegexp()
 		if err == nil {
