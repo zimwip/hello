@@ -1,8 +1,6 @@
 package infrastructure
 
 import (
-	"log"
-
 	"github.com/gorilla/mux"
 	"gopkg.in/olahol/melody.v1"
 
@@ -68,7 +66,6 @@ func (h *Handler) RegisterHandler(handler *rest.WebsocketHandler) {
 func NewRouter(appContext *rest.AppContext) *mux.Router {
 	subRoutes := make(map[string]*mux.Router)
 	router := mux.NewRouter()
-	log.Printf("Creating Root Router %p", router)
 	cur := router
 
 	// Now websocket test
@@ -84,11 +81,9 @@ func NewRouter(appContext *rest.AppContext) *mux.Router {
 				cur = val
 			} else {
 				cur = router.PathPrefix(route.ParentRoute).Subrouter().StrictSlash(true)
-				log.Printf("Adding Sub Router %s, %p", route.ParentRoute, cur)
 				subRoutes[route.ParentRoute] = cur
 			}
 		}
-		log.Printf("Adding Route %s at %s%s, %p", route.Name, route.ParentRoute, route.Pattern, cur)
 		newRoute := cur.Path(route.Pattern).
 			Name(route.Name).
 			Handler(route.ContextedHandler)
