@@ -87,6 +87,7 @@ func main() {
 
 	log.Info("starting server")
 	var tracer opentracing.Tracer
+
 	// Would it make sense to embed Appdash?
 	addr := startAppdashServer(*appdashPort)
 	tracer = appdashot.NewTracer(appdash.NewRemoteCollector(addr))
@@ -126,7 +127,6 @@ func main() {
 func prometheusMain() {
 	start := time.Now()
 
-	log.Println("Starting instrumentation")
 	oscillationFactor := func() float64 {
 		return 2 + math.Sin(math.Sin(2*math.Pi*float64(time.Since(start))/float64(*oscillationPeriod)))
 	}

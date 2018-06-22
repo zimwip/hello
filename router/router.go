@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/zimwip/hello/config"
+	"github.com/zimwip/hello/domain"
 	"github.com/zimwip/hello/infrastructure"
-	"github.com/zimwip/hello/interfaces/rest"
 	"github.com/zimwip/hello/middleware"
 
 	"github.com/gorilla/mux"
@@ -61,7 +61,7 @@ return an APIRouter
 func NewServer(secured_port string, port string, staticDir string, logger *zap.Logger) *APIRouter {
 
 	// master router
-	appContext := rest.AppContext{}
+	appContext := domain.AppContext{}
 	r := infrastructure.NewRouter(&appContext)
 	// Set up classic Negroni Middleware
 	recovery := middleware.NewRecovery()

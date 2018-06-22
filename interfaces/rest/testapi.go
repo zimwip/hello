@@ -7,9 +7,11 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/opentracing/opentracing-go"
 	oplog "github.com/opentracing/opentracing-go/log"
+
+	"github.com/zimwip/hello/domain"
 )
 
-func handler(c *AppContext, w http.ResponseWriter, r *http.Request) {
+func handler(c *domain.AppContext, w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var parentCtx opentracing.SpanContext
 	parentSpan := opentracing.SpanFromContext(r.Context())
@@ -34,34 +36,16 @@ func handler(c *AppContext, w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("Gorilla!\n"))
 }
 
-func panicHandler(c *AppContext, w http.ResponseWriter, r *http.Request) {
+func panicHandler(c *domain.AppContext, w http.ResponseWriter, r *http.Request) {
 	sp := opentracing.StartSpan("GET /panic") // Start a new root span.
 	defer sp.Finish()
 	panic("Oh no !")
 }
 
-func NewAPI(context *AppContext) {
+func NewAPI(context *domain.AppContext) {
 
-	declareNewRoute(context, "Standard", []string{}, "/", "/api", handler)
-	declareNewRoute(context, "Article", []string{"GET"}, "/articles/{category}", "/api", handler)
-	declareNewRoute(context, "Panic", []string{}, "/panic", "/api", panicHandler)
+	DeclareNewRoute(context, "Standard", []string{}, "/", "/api", handler)
+	DeclareNewRoute(context, "Article", []string{"GET"}, "/articles/{category}", "/api", handler)
+	DeclareNewRoute(context, "Panic", []string{}, "/panic", "/api", panicHandler)
 
-}
-
-func declareNewRoute(context *AppContext, name string, method []string, pattern string, parent string, handler func(c *AppContext, w http.ResponseWriter, r *http.Request)) {
-
-	contextedHandler := &ContextedHandler{
-		AppContext:           context,
-		ContextedHandlerFunc: handler,
-	}
-
-	route := Route{
-		Name:             name,
-		Method:           method,
-		Pattern:          pattern,
-		ParentRoute:      parent,
-		ContextedHandler: contextedHandler, // We defined HelloWorldHandler in Part1
-	}
-
-	AddRoute(route)
 }

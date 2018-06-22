@@ -61,7 +61,7 @@ func (handler *WebsocketHandler) HandleError(s Session, err error) {
 	fmt.Printf("%s", err)
 }
 
-func NewGopher(context *AppContext, interactor WebsocketInteractor) {
+func NewGopher(context *domain.AppContext, interactor WebsocketInteractor) {
 	handler := &WebsocketHandler{
 		gophers: make(map[Session]*domain.GopherInfo),
 		lock:    new(sync.Mutex),
@@ -70,7 +70,7 @@ func NewGopher(context *AppContext, interactor WebsocketInteractor) {
 
 	contextedHandler := &ContextedHandler{
 		AppContext: context,
-		ContextedHandlerFunc: func(c *AppContext, w http.ResponseWriter, r *http.Request) {
+		ContextedHandlerFunc: func(c *domain.AppContext, w http.ResponseWriter, r *http.Request) {
 			interactor.HandleRequest(w, r)
 		},
 	}

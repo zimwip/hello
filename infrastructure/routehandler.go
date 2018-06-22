@@ -4,11 +4,8 @@ import (
 	"github.com/gorilla/mux"
 	"gopkg.in/olahol/melody.v1"
 
+	"github.com/zimwip/hello/domain"
 	"github.com/zimwip/hello/interfaces/rest"
-)
-
-var (
-	appContext rest.AppContext
 )
 
 // Session struct for melody session
@@ -63,7 +60,7 @@ func (h *Handler) RegisterHandler(handler *rest.WebsocketHandler) {
 }
 
 //NewRouter returns a new Gorrila Mux router
-func NewRouter(appContext *rest.AppContext) *mux.Router {
+func NewRouter(appContext *domain.AppContext) *mux.Router {
 	subRoutes := make(map[string]*mux.Router)
 	router := mux.NewRouter()
 	cur := router

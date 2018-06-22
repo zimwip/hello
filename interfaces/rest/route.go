@@ -5,18 +5,15 @@ package rest
 
 import (
 	"net/http"
+
+	"github.com/zimwip/hello/domain"
 )
 
 //ContextedHandler is a wrapper to provide AppContext to our Handlers
 type ContextedHandler struct {
-	*AppContext
+	*domain.AppContext
 	//ContextedHandlerFunc is the interface which our Handlers will implement
-	ContextedHandlerFunc func(*AppContext, http.ResponseWriter, *http.Request)
-}
-
-//AppContext provides the app context to handlers.  This *cannot* contain request-specific keys like
-//sessionId or similar.  It is shared across requests.
-type AppContext struct {
+	ContextedHandlerFunc func(*domain.AppContext, http.ResponseWriter, *http.Request)
 }
 
 func (handler ContextedHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -36,8 +33,7 @@ type Route struct {
 type Routes []Route
 
 var (
-	routes     Routes = make([]Route, 0)
-	appContext AppContext
+	routes Routes = make([]Route, 0)
 )
 
 func AddRoute(route Route) {
@@ -46,4 +42,22 @@ func AddRoute(route Route) {
 
 func GetRoutes() Routes {
 	return routes
+}
+
+func DeclareNewRoute(context *domain.AppContext, name string, method []string, pattern string, parent string, handler func(c *domain.AppContext, w http.ResponseWriter, r *http.Request)) {
+
+	contextedHandler := &ContextedHandler{
+		AppContext:           context,
+		ContextedHandlerFunc: handler,
+	}
+
+	route := Route{
+		Name:             name,
+		Method:           method,
+		Pattern:          pattern,
+		ParentRoute:      parent,
+		ContextedHandler: contextedHandler, // We defined HelloWorldHandler in Part1
+	}
+
+	AddRoute(route)
 }
