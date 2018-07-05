@@ -15,7 +15,7 @@ import (
 
 	"golang.org/x/crypto/acme/autocert"
 
-	"github.com/zimwip/hello/config"
+	"github.com/zimwip/hello/crosscutting"
 )
 
 // helper function to create a cert template with a serial number and other required fields
@@ -39,7 +39,7 @@ func CertTemplate() (*x509.Certificate, error) {
 }
 
 func GetTLSConfig() (*tls.Config, *autocert.Manager) {
-	if config.Config().IsDev() {
+	if crosscutting.Config().IsDev() {
 		return developmentTLSConfig()
 	} else {
 		return productionTLSConfig()
@@ -50,7 +50,7 @@ func productionTLSConfig() (*tls.Config, *autocert.Manager) {
 	// TLS certification
 	m := autocert.Manager{
 		Prompt:     autocert.AcceptTOS,
-		HostPolicy: autocert.HostWhitelist(config.Config().GetString("app.hostname")),
+		HostPolicy: autocert.HostWhitelist(crosscutting.Config().GetString("app.hostname")),
 		Cache:      autocert.DirCache("./letsencrypt/"),
 	}
 
@@ -76,7 +76,7 @@ func developmentTLSConfig() (*tls.Config, *autocert.Manager) {
 	rootCertTmpl.IsCA = true
 	rootCertTmpl.KeyUsage = x509.KeyUsageCertSign | x509.KeyUsageDigitalSignature
 	rootCertTmpl.ExtKeyUsage = []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth}
-	rootCertTmpl.DNSNames = []string{config.Config().GetString("app.hostname")}
+	rootCertTmpl.DNSNames = []string{crosscutting.Config().GetString("app.hostname")}
 
 	rootCert, rootCertPEM, err := CreateCert(rootCertTmpl, rootCertTmpl, &rootKey.PublicKey, rootKey)
 	if err != nil {

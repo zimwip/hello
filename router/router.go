@@ -6,21 +6,18 @@ import (
 	"strings"
 	"time"
 
-	"github.com/zimwip/hello/config"
+	"github.com/zimwip/hello/crosscutting"
 	"github.com/zimwip/hello/domain"
 	"github.com/zimwip/hello/infrastructure"
 	"github.com/zimwip/hello/middleware"
 
 	"github.com/gorilla/mux"
 	"github.com/unrolled/secure"
-
-	"go.uber.org/zap"
 )
 
 type APIRouter struct {
 	http.Server
 	router *mux.Router
-	logger *zap.Logger
 }
 
 func PrintUsage(r *APIRouter) {
@@ -58,7 +55,7 @@ func PrintUsage(r *APIRouter) {
 Create a new server listen to API call and static file
 return an APIRouter
 */
-func NewServer(secured_port string, port string, staticDir string, logger *zap.Logger) *APIRouter {
+func NewServer(secured_port string, port string, staticDir string) *APIRouter {
 
 	// master router
 	appContext := domain.AppContext{}
@@ -68,7 +65,9 @@ func NewServer(secured_port string, port string, staticDir string, logger *zap.L
 	recovery.Formatter = &middleware.HTMLPanicFormatter{}
 	recovery.PrintStack = true
 
-	r.Use(middleware.NewLogger(logger).Middleware)
+	logger := crosscutting.Logger()
+
+	r.Use(middleware.NewTracer().Middleware)
 	r.Use(recovery.Middleware)
 
 	secureMiddleware := secure.New(secure.Options{
@@ -84,7 +83,7 @@ func NewServer(secured_port string, port string, staticDir string, logger *zap.L
 		BrowserXssFilter:     true,
 		//		ContentSecurityPolicy: "script-src $NONCE",
 		PublicKey:     `pin-sha256="base64+primary=="; pin-sha256="base64+backup=="; max-age=5184000; includeSubdomains; report-uri="https://www.example.com/hpkp-report"`,
-		IsDevelopment: config.Config().IsDev(),
+		IsDevelopment: crosscutting.Config().IsDev(),
 	})
 
 	r.Use(secureMiddleware.Handler)
@@ -105,20 +104,20 @@ func NewServer(secured_port string, port string, staticDir string, logger *zap.L
 		ReadTimeout:  time.Second * 15,
 		IdleTimeout:  time.Second * 60,
 		Handler:      r, // Pass our instance of gorilla/mux in.
-	}, r, logger}
+	}, r}
 
 	// Run our server in a goroutine so that it doesn't block.
 	go func() {
 		if err := srv.ListenAndServeTLS("", ""); err != nil {
-			logger.Fatal("Server stop with error", zap.Error(err))
+			logger.Fatal("Server stop with error", logger.Error(err))
 		}
 	}()
 
 	// allow ACME call to be performed
 	go func() {
-		if !config.Config().IsDev() && manager != nil {
+		if !crosscutting.Config().IsDev() && manager != nil {
 			if err := http.ListenAndServe(port, manager.HTTPHandler(nil)); err != nil {
-				logger.Fatal("Server stop with error", zap.Error(err))
+				logger.Fatal("Server stop with error", logger.Error(err))
 			}
 		}
 	}()

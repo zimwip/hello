@@ -12,7 +12,6 @@ import (
 	"github.com/opentracing/opentracing-go/log"
 
 	"github.com/gorilla/mux"
-	"go.uber.org/zap"
 )
 
 // Create our own logResponseWriter to wrap a standard http.ResponseWriter
@@ -74,16 +73,15 @@ type LoggerEntry struct {
 var LoggerDefaultDateFormat = time.RFC3339
 
 // Logger is a middleware handler that logs the request as it goes in and the response as it goes out.
-type Logger struct {
+type Tracer struct {
 	// ALogger implements just enough log.Logger interface to be compatible with other implementations
-	*zap.Logger
 	dateFormat string
 }
 
 // NewLogger returns a new Logger instance
-func NewLogger(log *zap.Logger) *Logger {
-	logger := &Logger{Logger: log, dateFormat: LoggerDefaultDateFormat}
-	return logger
+func NewTracer() *Tracer {
+	tracer := &Tracer{dateFormat: LoggerDefaultDateFormat}
+	return tracer
 }
 
 func opName(r *http.Request) string {
@@ -95,7 +93,7 @@ func opName(r *http.Request) string {
 	return r.Proto + " " + r.Method + " " + r.URL.Path
 }
 
-func (l *Logger) Middleware(next http.Handler) http.Handler {
+func (l *Tracer) Middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
 		start := time.Now()
 		opName := opNameFunc(r)
@@ -125,15 +123,6 @@ func (l *Logger) Middleware(next http.Handler) http.Handler {
 			log.String("Hostname", r.Host),
 			log.String("Method", r.Method),
 			log.String("URL", r.URL.Path))
-
-		l.Info(r.URL.Path,
-			zap.String("StartTime", start.Format(l.dateFormat)),
-			zap.Int("Status", res.Status()),
-			zap.Duration("Duration", duration),
-			zap.String("Hostname", r.Host),
-			zap.String("Method", r.Method),
-			zap.String("URL", r.URL.Path),
-		)
 	})
 }
 

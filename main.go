@@ -16,7 +16,7 @@ import (
 	"github.com/zimwip/hello/interfaces"
 	"github.com/zimwip/hello/usecases"
 
-	"github.com/zimwip/hello/config"
+	"github.com/zimwip/hello/crosscutting"
 	"github.com/zimwip/hello/router"
 
 	"github.com/opentracing/opentracing-go"
@@ -25,9 +25,6 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-
-	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 )
 
 var (
@@ -75,15 +72,7 @@ func main() {
 
 	flag.Parse()
 
-	cfg := zap.NewProductionConfig()
-	cfg.EncoderConfig.EncodeLevel = zapcore.CapitalLevelEncoder
-
-	cfg.OutputPaths = config.Config().GetStringSlice("app.log.out")
-	log, err := cfg.Build()
-	if err != nil {
-		panic(err)
-	}
-	defer log.Sync()
+	log := crosscutting.Logger()
 
 	log.Info("starting server")
 	var tracer opentracing.Tracer
@@ -98,7 +87,7 @@ func main() {
 	sa.Setup(":1234")
 	go sa.Serve()
 
-	srv := router.NewServer(":"+config.Config().GetString("app.secured_port"), ":"+config.Config().GetString("app.port"), *staticDir, log)
+	srv := router.NewServer(":"+crosscutting.Config().GetString("app.secured_port"), ":"+crosscutting.Config().GetString("app.port"), *staticDir)
 
 	// Création d’une variable pour l’interception du signal de fin de programme
 	c := make(chan os.Signal, 1)
