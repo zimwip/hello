@@ -1,5 +1,5 @@
 // endpoints_test.go
-package router
+package infrastructure
 
 import (
 	"net/http"

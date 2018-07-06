@@ -2,7 +2,6 @@ package rest
 
 import (
 	"fmt"
-	"net/http"
 	"strconv"
 	"strings"
 	"sync"
@@ -10,24 +9,13 @@ import (
 	"github.com/zimwip/hello/domain"
 )
 
-type Session interface {
-	WriteMessage(data []byte)
-	BroadcastOthers(data []byte) error
+type GopherHandler struct {
+	lock    *sync.Mutex
+	counter int
+	gophers map[Session]*domain.GopherInfo
 }
 
-type WebsocketHandler struct {
-	lock       *sync.Mutex
-	counter    int
-	gophers    map[Session]*domain.GopherInfo
-	interactor WebsocketInteractor
-}
-
-type WebsocketInteractor interface {
-	HandleRequest(w http.ResponseWriter, r *http.Request) error
-	RegisterHandler(handler *WebsocketHandler)
-}
-
-func (handler *WebsocketHandler) HandleConnect(s Session) {
+func (handler *GopherHandler) HandleConnect(s Session) {
 	handler.lock.Lock()
 	defer handler.lock.Unlock()
 	for _, info := range handler.gophers {
@@ -38,14 +26,14 @@ func (handler *WebsocketHandler) HandleConnect(s Session) {
 	handler.counter++
 }
 
-func (handler *WebsocketHandler) HandleDisconnect(s Session) {
+func (handler *GopherHandler) HandleDisconnect(s Session) {
 	handler.lock.Lock()
 	defer handler.lock.Unlock()
 	s.BroadcastOthers([]byte("dis " + handler.gophers[s].ID))
 	delete(handler.gophers, s)
 }
 
-func (handler *WebsocketHandler) HandleMessage(s Session, msg []byte) {
+func (handler *GopherHandler) HandleMessage(s Session, msg []byte) {
 	p := strings.Split(string(msg), " ")
 	handler.lock.Lock()
 	defer handler.lock.Unlock()
@@ -57,29 +45,14 @@ func (handler *WebsocketHandler) HandleMessage(s Session, msg []byte) {
 	}
 }
 
-func (handler *WebsocketHandler) HandleError(s Session, err error) {
+func (handler *GopherHandler) HandleError(s Session, err error) {
 	fmt.Printf("%s", err)
 }
 
-func NewGopher(context *domain.AppContext, interactor WebsocketInteractor) {
-	handler := &WebsocketHandler{
+func NewGopher(routeInteractor RouteInteractor) {
+	handler := &GopherHandler{
 		gophers: make(map[Session]*domain.GopherInfo),
 		lock:    new(sync.Mutex),
 	}
-	interactor.RegisterHandler(handler)
-
-	contextedHandler := &ContextedHandler{
-		AppContext: context,
-		ContextedHandlerFunc: func(c *domain.AppContext, w http.ResponseWriter, r *http.Request) {
-			interactor.HandleRequest(w, r)
-		},
-	}
-
-	route := Route{
-		Name:             "Websocket",
-		Method:           []string{}, //You can handle more than just GET requests here, but for this tutorial we'll just do GETs
-		Pattern:          "/ws",
-		ContextedHandler: contextedHandler, // We defined HelloWorldHandler in Part1
-	}
-	AddRoute(route)
+	routeInteractor.AddWebsocketHandler("Websocket", "/ws", handler)
 }

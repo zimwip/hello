@@ -1,6 +1,3 @@
-/*
-Basic route management tools.
-*/
 package rest
 
 import (
@@ -9,55 +6,38 @@ import (
 	"github.com/zimwip/hello/domain"
 )
 
+type ContextedHandlerFunc func(c *domain.AppContext, w http.ResponseWriter, r *http.Request)
+
 //ContextedHandler is a wrapper to provide AppContext to our Handlers
 type ContextedHandler struct {
 	*domain.AppContext
 	//ContextedHandlerFunc is the interface which our Handlers will implement
-	ContextedHandlerFunc func(*domain.AppContext, http.ResponseWriter, *http.Request)
+	HandlerFunc ContextedHandlerFunc
 }
 
+// ServeHTTP Wrapper
 func (handler ContextedHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	handler.ContextedHandlerFunc(handler.AppContext, w, r)
+	handler.HandlerFunc(handler.AppContext, w, r)
 }
 
-//Route this struct is used for declaring a route
-type Route struct {
-	Name             string
-	Method           []string
-	Pattern          string
-	ParentRoute      string
-	ContextedHandler *ContextedHandler
+type Session interface {
+	WriteMessage(data []byte)
+	BroadcastOthers(data []byte) error
 }
 
-//Routes just stores our Route declarations
-type Routes []Route
-
-var (
-	routes Routes = make([]Route, 0)
-)
-
-func AddRoute(route Route) {
-	routes = append(routes, route)
+type WebsocketHandler interface {
+	HandleConnect(s Session)
+	HandleDisconnect(s Session)
+	HandleMessage(s Session, msg []byte)
+	HandleError(s Session, err error)
 }
 
-func GetRoutes() Routes {
-	return routes
+type WebsocketInteractor interface {
+	HandleRequest(w http.ResponseWriter, r *http.Request) error
+	RegisterHandler(handler WebsocketHandler)
 }
 
-func DeclareNewRoute(context *domain.AppContext, name string, method []string, pattern string, parent string, handler func(c *domain.AppContext, w http.ResponseWriter, r *http.Request)) {
-
-	contextedHandler := &ContextedHandler{
-		AppContext:           context,
-		ContextedHandlerFunc: handler,
-	}
-
-	route := Route{
-		Name:             name,
-		Method:           method,
-		Pattern:          pattern,
-		ParentRoute:      parent,
-		ContextedHandler: contextedHandler, // We defined HelloWorldHandler in Part1
-	}
-
-	AddRoute(route)
+type RouteInteractor interface {
+	AddRoute(name string, method []string, pattern string, parent string, handler ContextedHandlerFunc)
+	AddWebsocketHandler(name string, pattern string, handler WebsocketHandler)
 }

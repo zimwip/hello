@@ -12,12 +12,13 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/zimwip/hello/domain"
 	"github.com/zimwip/hello/infrastructure"
 	"github.com/zimwip/hello/interfaces"
+	"github.com/zimwip/hello/interfaces/rest"
 	"github.com/zimwip/hello/usecases"
 
 	"github.com/zimwip/hello/crosscutting"
-	"github.com/zimwip/hello/router"
 
 	"github.com/opentracing/opentracing-go"
 	"sourcegraph.com/sourcegraph/appdash"
@@ -87,7 +88,10 @@ func main() {
 	sa.Setup(":1234")
 	go sa.Serve()
 
-	srv := router.NewServer(":"+crosscutting.Config().GetString("app.secured_port"), ":"+crosscutting.Config().GetString("app.port"), *staticDir)
+	appCtx := new(domain.AppContext)
+	interactor, srv := infrastructure.NewServer(appCtx, ":"+crosscutting.Config().GetString("app.secured_port"), ":"+crosscutting.Config().GetString("app.port"), *staticDir)
+	rest.NewGopher(interactor)
+	rest.NewAPI(interactor)
 
 	// Création d’une variable pour l’interception du signal de fin de programme
 	c := make(chan os.Signal, 1)

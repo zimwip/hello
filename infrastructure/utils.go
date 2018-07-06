@@ -1,4 +1,4 @@
-package router
+package infrastructure
 
 import (
 	"encoding/pem"

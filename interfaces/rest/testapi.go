@@ -42,10 +42,10 @@ func panicHandler(c *domain.AppContext, w http.ResponseWriter, r *http.Request) 
 	panic("Oh no !")
 }
 
-func NewAPI(context *domain.AppContext) {
+func NewAPI(routeInteractor RouteInteractor) {
 
-	DeclareNewRoute(context, "Standard", []string{}, "/", "/api", handler)
-	DeclareNewRoute(context, "Article", []string{"GET"}, "/articles/{category}", "/api", handler)
-	DeclareNewRoute(context, "Panic", []string{}, "/panic", "/api", panicHandler)
+	routeInteractor.AddRoute("Standard", []string{}, "/", "/api", handler)
+	routeInteractor.AddRoute("Article", []string{"GET"}, "/articles/{category}", "/api", handler)
+	routeInteractor.AddRoute("Panic", []string{}, "/panic", "/api", panicHandler)
 
 }
